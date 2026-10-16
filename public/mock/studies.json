@@ -1,0 +1,117 @@
+[
+  {
+    "id": "demo-study",
+    "name": "Demo Study (all features)",
+    "randomized": false,
+    "display": {
+      "videoBar": true,
+      "leftText": "Dislike",
+      "rightText": "Like"
+    },
+    "controls": {
+      "swipeUp": true,
+      "responseButtons": true,
+      "pausing": true,
+      "audioRecord": false,
+      "cameraRecord": false
+    },
+    "blocks": [
+      {
+        "id": "b1",
+        "type": "instructions",
+        "label": "instruction1",
+        "text": "Welcome! You will watch a few short videos.\n\nTap the buttons to tell us whether you like each video.\n\nSwipe to continue."
+      },
+      {
+        "id": "b2",
+        "type": "video",
+        "label": "video1",
+        "videoUrl": "/mock/videos/sample1.mp4",
+        "fileName": "sample1.mp4"
+      },
+      {
+        "id": "b3",
+        "type": "survey",
+        "label": "survey1",
+        "prompt": "How much did you enjoy that video?",
+        "options": ["Strongly agree", "Agree", "Neutral", "Disagree", "Strongly disagree"]
+      },
+      {
+        "id": "b4",
+        "type": "video",
+        "label": "video2",
+        "videoUrl": "/mock/videos/sample2.mp4",
+        "fileName": "sample2.mp4"
+      },
+      {
+        "id": "b5",
+        "type": "video",
+        "label": "video3",
+        "videoUrl": "/mock/videos/sample3.mp4",
+        "fileName": "sample3.mp4"
+      },
+      {
+        "id": "b6",
+        "type": "instructions",
+        "label": "instruction2",
+        "text": "That's the end of the study.\n\nSwipe one more time to finish."
+      }
+    ]
+  },
+  {
+    "id": "random-groups-study",
+    "name": "Randomized Videos Study",
+    "randomized": false,
+    "display": {
+      "videoBar": false,
+      "leftText": "",
+      "rightText": ""
+    },
+    "controls": {
+      "swipeUp": false,
+      "responseButtons": true,
+      "pausing": false,
+      "audioRecord": false,
+      "cameraRecord": false
+    },
+    "blocks": [
+      {
+        "id": "r1",
+        "type": "instructions",
+        "label": "instruction1",
+        "text": "You will see three videos in a random order. Swipe to begin."
+      },
+      {
+        "id": "r2",
+        "type": "video",
+        "label": "video1",
+        "videoUrl": "/mock/videos/sample1.mp4",
+        "fileName": "sample1.mp4",
+        "randomGroup": "videos"
+      },
+      {
+        "id": "r3",
+        "type": "video",
+        "label": "video2",
+        "videoUrl": "/mock/videos/sample2.mp4",
+        "fileName": "sample2.mp4",
+        "randomGroup": "videos"
+      },
+      {
+        "id": "r4",
+        "type": "video",
+        "label": "video3",
+        "videoUrl": "/mock/videos/sample3.mp4",
+        "fileName": "sample3.mp4",
+        "randomGroup": "videos"
+      },
+      {
+        "id": "r5",
+        "type": "survey",
+        "label": "survey1",
+        "prompt": "Overall, the videos held my attention.",
+        "options": ["Agree", "Neutral", "Disagree"]
+      }
+    ]
+  }
+]

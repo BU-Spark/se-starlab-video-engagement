@@ -1,0 +1,35 @@
+/* Fixed to the viewport so the tablet app ignores the site-wide padded container from the root layout. */
+.root {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  background: #000;
+  color: #fff;
+  overflow: hidden;
+  overscroll-behavior: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.root input {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.resumeOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: rgba(0, 0, 0, 0.85);
+  cursor: pointer;
+}
+
+.resumeOverlay span {
+  display: inline-flex;
+  align-items: center;
+}

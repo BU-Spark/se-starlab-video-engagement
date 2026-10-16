@@ -1,0 +1,16 @@
+.slide {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding: 2.5rem;
+  background: #1f5c99;
+  color: #fff;
+}
+
+.text {
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.4;
+  white-space: pre-line;
+}
