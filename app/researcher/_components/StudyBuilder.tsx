@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Icon, { type IconName } from './Icon';
 import {
   createBlock,
@@ -14,7 +14,6 @@ import {
   type RandomizationMode,
   type StudyDraft,
 } from './study-model';
-import { saveDemoStudy } from './demo-service';
 import styles from './StudyBuilder.module.css';
 
 const blockInfo: Record<BlockType, { title: string; icon: IconName; description: string }> = {
@@ -65,20 +64,17 @@ function FieldError({ id, message }: { id: string; message?: string }) {
 export default function StudyBuilder() {
   const [draft, setDraft] = useState<StudyDraft>(createStudy);
   const [dirty, setDirty] = useState(false);
-  const [attempted, setAttempted] = useState(false);
-  const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const [saveError, setSaveError] = useState('');
-  const [simulateFailure, setSimulateFailure] = useState(false);
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [showBlockPicker, setShowBlockPicker] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [focusBlock, setFocusBlock] = useState<string | null>(null);
   const [fileErrors, setFileErrors] = useState<Record<string, string>>({});
   const previewUrls = useRef(new Set<string>());
-  const errorSummary = useRef<HTMLDivElement>(null);
   const addButton = useRef<HTMLButtonElement>(null);
-  const busy = status === 'saving';
-  const errors = { ...(attempted ? validateStudy(draft) : {}), ...fileErrors };
-  const errorCount = Object.keys(errors).length;
+  const errors = {
+    ...Object.fromEntries(Object.entries(validateStudy(draft)).filter(([key]) => touched[key])),
+    ...fileErrors,
+  };
 
   useEffect(() => {
     const urls = previewUrls.current;
@@ -112,8 +108,6 @@ export default function StudyBuilder() {
   function update(change: (current: StudyDraft) => StudyDraft) {
     setDraft(change);
     setDirty(true);
-    setStatus('idle');
-    setSaveError('');
   }
 
   function updateBlock(id: string, change: (block: DraftBlock) => DraftBlock) {
@@ -216,25 +210,18 @@ export default function StudyBuilder() {
     addButton.current?.focus();
   }
 
-  async function save(event: FormEvent) {
-    event.preventDefault();
-    if (busy) return;
-    setAttempted(true);
-    if (Object.keys({ ...validateStudy(draft), ...fileErrors }).length) {
-      setStatus('idle');
-      requestAnimationFrame(() => errorSummary.current?.focus());
-      return;
-    }
-    setStatus('saving');
-    setSaveError('');
-    try {
-      await saveDemoStudy(draft, simulateFailure);
-      setStatus('saved');
-      setDirty(false);
-    } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Demo save failed. Please try again.');
-      setStatus('error');
-    }
+  function touchField(id: string) {
+    const key =
+      id === 'study-name'
+        ? 'name'
+        : id.endsWith('-text')
+          ? id.slice(0, -5) + '.text'
+          : id.endsWith('-question')
+            ? id.slice(0, -9) + '.question'
+            : /^[0-9a-f-]{36}$/i.test(id)
+              ? id + '.label'
+              : null;
+    if (key) setTouched((current) => ({ ...current, [key]: true }));
   }
 
   function blockPicker() {
@@ -256,14 +243,7 @@ export default function StudyBuilder() {
     );
   }
 
-  const saveLabel = busy ? 'Saving demo…' : status === 'saved' ? 'Demo saved' : 'Save demo';
-  const statusLabel = busy
-    ? 'Saving in this session'
-    : status === 'saved'
-      ? 'Demo saved · not uploaded'
-      : dirty
-        ? 'Unsaved changes'
-        : 'New study';
+  const statusLabel = dirty ? 'Local changes · not saved' : 'New study';
 
   return (
     <div className={styles.workspace}>
@@ -300,7 +280,7 @@ export default function StudyBuilder() {
           <Icon name="chevron" size={12} />
           <span>Study builder</span>
         </div>
-        <form onSubmit={save} noValidate>
+        <form onSubmit={(event) => event.preventDefault()} onBlur={(event) => touchField(event.target.id)} noValidate>
           <div className={styles.pageHeading}>
             <div>
               <span className={styles.eyebrow}>DESIGN YOUR EXPERIMENT</span>
@@ -310,13 +290,19 @@ export default function StudyBuilder() {
               <p>Shape the experience, one block at a time.</p>
             </div>
             <div className={styles.headingActions}>
-              <span className={styles.saveIndicator} data-state={status} role="status">
+              <span className={styles.saveIndicator} role="status">
                 <span />
                 {statusLabel}
               </span>
-              <button className={styles.primaryButton} type="submit" disabled={busy}>
-                <Icon name={status === 'saved' ? 'check' : 'save'} size={17} />
-                {saveLabel}
+              <button
+                className={styles.primaryButton}
+                type="button"
+                disabled
+                title="Saving will be available after backend integration."
+                aria-describedby="backend-notice"
+              >
+                <Icon name="save" size={17} />
+                Save study
               </button>
             </div>
           </div>
@@ -324,32 +310,16 @@ export default function StudyBuilder() {
           <div className={styles.demoNotice}>
             <Icon name="info" size={17} />
             <p>
-              <strong>Demo workspace</strong>
-              <span>
-                Files stay on your device. Saving is simulated; refreshing or closing this page clears your work.
+              <strong>Frontend preview</strong>
+              <span id="backend-notice">
+                Saving is not connected yet. Files stay on your device; refreshing or closing this page clears your
+                work.
               </span>
             </p>
             <span className={styles.demoTag}>LOCAL ONLY</span>
           </div>
 
-          {attempted && errorCount > 0 && (
-            <div ref={errorSummary} tabIndex={-1} role="alert" className={styles.errorSummary}>
-              <strong>Let’s finish a few details.</strong> Check the highlighted fields before saving.
-            </div>
-          )}
-          {status === 'error' && (
-            <div role="alert" className={styles.errorSummary}>
-              {saveError}
-            </div>
-          )}
-          {status === 'saved' && (
-            <p role="status" className={styles.successMessage}>
-              <Icon name="check" size={16} />
-              Demo saved successfully. Nothing was uploaded to the cloud.
-            </p>
-          )}
-
-          <fieldset disabled={busy} className={styles.editorFieldset}>
+          <fieldset className={styles.editorFieldset}>
             <legend className={styles.srOnly}>Create study configuration</legend>
             <section className={styles.settingsCard} aria-labelledby="settings-heading">
               <div className={styles.sectionHeader}>
@@ -409,7 +379,7 @@ export default function StudyBuilder() {
                     <p className={styles.hint}>
                       {draft.settings.randomization.mode === 'none'
                         ? 'Blocks run in the order you arrange below.'
-                        : 'Configuration only. This demo does not shuffle blocks.'}
+                        : 'Order is configured here; randomization runs in the participant app.'}
                     </p>
                   </div>
                 </div>
@@ -887,27 +857,21 @@ export default function StudyBuilder() {
                 </button>
               )}
             </section>
-
-            <div className={styles.demoTools}>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={simulateFailure}
-                  onChange={(e) => setSimulateFailure(e.target.checked)}
-                />
-                Simulate a save failure
-              </label>
-              <span>Demo testing only</span>
-            </div>
           </fieldset>
           <div className={styles.bottomBar}>
             <p>
               <Icon name="info" size={16} />
               <span>Changes stay in this tab. No participant data is collected.</span>
             </p>
-            <button type="submit" className={styles.primaryButton} disabled={busy}>
-              <Icon name={status === 'saved' ? 'check' : 'save'} size={17} />
-              {saveLabel}
+            <button
+              type="button"
+              className={styles.primaryButton}
+              disabled
+              title="Saving will be available after backend integration."
+              aria-describedby="backend-notice"
+            >
+              <Icon name="save" size={17} />
+              Save study
             </button>
           </div>
         </form>

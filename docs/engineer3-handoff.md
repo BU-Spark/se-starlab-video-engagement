@@ -1,42 +1,42 @@
-# Engineer 3 接口交接说明
+# Engineer 3 API Handoff
 
-对应页面：`/researcher/studies/new`  
-前端负责人：Engineer 1 / Louis  
-后端负责人：Engineer 3  
-日期：2026-10-16
+Page: `/researcher/studies/new`  
+Frontend owner: Engineer 1 / Louis  
+Backend owner: Engineer 3  
+Date: 2026-10-16
 
-## 1. 当前实现和接入位置
+## 1. Current Implementation and Integration Points
 
-创建页已实现三种 block、设置、排序、删除确认、本地文件预览、校验及模拟保存。**目前不发送业务 HTTP 请求，不上传文件，不持久化实验。** 刷新会清空数据。
+The creation page supports three block types, settings, reordering, deletion confirmation, local file previews, and validation. **There are currently no backend requests, uploads, or persistent saves. Save buttons are disabled, and refreshing clears the data.** The previous simulated-save implementation has been removed.
 
-相关文件：
+Relevant files:
 
-- [StudyBuilder.tsx](../app/researcher/_components/StudyBuilder.tsx)：页面与保存操作。
-- [study-model.ts](../app/researcher/_components/study-model.ts)：前端模型、验证、`StudyPayload` 及 `buildStudyPayload`。
-- [demo-service.ts](../app/researcher/_components/demo-service.ts)：模拟保存，需要在正式联调时由真实请求服务替换。
-- [researcher.md](researcher.md)：功能范围和演示步骤。
+- [StudyBuilder.tsx](../app/researcher/_components/StudyBuilder.tsx): page interface and save integration point.
+- [study-model.ts](../app/researcher/_components/study-model.ts): frontend models, validation, `StudyPayload`, and `buildStudyPayload`.
+- Save requests are not implemented. Implement real requests in a separate API service and connect it to page actions during integration.
+- [researcher.md](researcher.md): feature scope and demonstration steps.
 
-下面是需要双方确认的 API 契约提案，并非已实现后端。先完成“上传资源 → 创建实验 → 读取确认”闭环；列表、历史运行、导出不属于本次页面接入。
+The following is a proposed API contract requiring agreement between frontend and backend, not an implemented backend. Complete the upload → create study → read-back verification flow first. Study lists, historical runs, and exports are outside this page's initial integration scope.
 
-## 2. 路由清单
+## 2. Routes
 
-统一前缀建议为 `/api/v1`，JSON 字段使用 snake_case。
+Use the proposed prefix `/api/v1` and snake_case JSON fields.
 
-| 优先级 | 方法和路径 | Engineer 3 需要完成的行为 | 成功响应 |
+| Priority | Method and Path | Engineer 3 Responsibilities | Success Response |
 | --- | --- | --- | --- |
-| 本轮接入 | POST /api/v1/assets/upload-url | 校验研究者权限、文件用途、类型和大小，创建资源记录并返回受限上传凭证 | 201，见上传约定 |
-| 本轮接入 | POST /api/v1/assets/{asset_id}/complete | 检查上传对象真实存在、类型/大小符合规则，将资源标记可引用；重复调用不创建重复资源 | 200，资源详情 |
-| 本轮接入 | POST /api/v1/studies | 校验完整实验和资源归属，一次性保存设置及所有 block | 201，StudyRead |
-| 保存验收 | GET /api/v1/studies/{study_id} | 校验权限并返回完整、按原始顺序排列的实验 | 200，StudyRead |
-| 后续编辑 | PUT /api/v1/studies/{study_id} | 校验 base_revision，原子替换实验配置并递增 revision | 200，StudyRead |
+| Initial integration | POST /api/v1/assets/upload-url | Validate researcher permissions, asset purpose, file type, and size; create an asset record and return restricted upload credentials | 201; see upload contract |
+| Initial integration | POST /api/v1/assets/{asset_id}/complete | Verify the actual uploaded object and its type/size; mark the asset ready for references; repeated calls must not create duplicate assets | 200; asset details |
+| Initial integration | POST /api/v1/studies | Validate the full study and asset ownership; atomically save settings and all blocks | 201; StudyRead |
+| Save verification | GET /api/v1/studies/{study_id} | Check permissions and return the complete study in its original order | 200; StudyRead |
+| Later editing | PUT /api/v1/studies/{study_id} | Validate base_revision, atomically replace study configuration, and increment revision | 200; StudyRead |
 
-当前前端只有创建页，没有实验列表/已有实验编辑页；GET/PUT 的 UI 回填和更新调用仍需后续接入。不要把后端返回值直接塞进含 File 对象的本地表单模型。
+The current frontend has only a creation page, not a study list or an existing-study editor. GET/PUT form hydration and update calls require later integration. Do not directly assign API responses to the local form model containing File objects.
 
-所有 Study 和 Asset 路由均需研究者认证和资源级权限检查。认证提供商沿用团队最终方案，不能因为接口在本地可调用，就省略正式部署的权限保护。
+All Study and Asset routes require researcher authentication and resource-level authorization. Use the authentication provider agreed by the team. Local accessibility does not justify omitting authorization from deployment.
 
-## 3. 创建实验请求
+## 3. Create Study Request
 
-`POST /api/v1/studies` 使用以下 JSON。示例 UUID 为演示值，video 的 asset_id 必须来自真实上传完成响应。
+Use the following JSON for `POST /api/v1/studies`. UUIDs are illustrative; the video's asset_id must come from a real completed upload.
 
 ```json
 {
@@ -85,35 +85,35 @@
 }
 ```
 
-StudyRead 返回上面全部字段，并增加：
+StudyRead returns all fields above and adds:
 
-| 字段 | 类型 | 约定 |
+| Field | Type | Contract |
 | --- | --- | --- |
-| id | UUID 字符串 | 后端生成的 Study ID |
-| revision | 正整数 | 创建为 1，每次成功修改递增 |
-| created_at | ISO 8601 字符串 | UTC，含时区 |
-| updated_at | ISO 8601 字符串 | UTC，含时区 |
+| id | UUID string | Backend-generated Study ID |
+| revision | Positive integer | Starts at 1; increments after each successful update |
+| created_at | ISO 8601 string | UTC, including timezone |
+| updated_at | ISO 8601 string | UTC, including timezone |
 
-更新使用同样配置，加上 `base_revision`；id 放在 URL 中，不允许由请求覆盖所有者。版本不匹配返回 409，不得采用静默覆盖。
+Updates use the same configuration plus `base_revision`. The study ID belongs in the URL; requests must not overwrite ownership. Return 409 on a revision mismatch instead of silently overwriting changes.
 
-### 字段和行为规则
+### Field and Behavior Rules
 
-- name、instruction.text、survey.question 和每项 label 去除首尾空格后非空。
-- 至少一个 block。Survey 原型至少两个选项；实际数量上限由团队确认。
-- block.type 是 instruction / video / survey 的判别字段，建议 Pydantic 判别联合模型，不用无结构 dict。
-- block 和 option 的 ID 由前端生成 UUID，排序不改变 ID；后端验证重复 ID。
-- blocks 和 options 的数组顺序有意义，不再独立维护另一个可能冲突的 order 字段。
-- randomization.mode：none / all / videos_only。本页面只配置，不计算随机结果。建议 videos_only 固定非视频位置，仅交换视频；正式执行语义需三人最终确认。
-- 自定义图标优先于 default_icon；null 表示使用默认。左右按钮默认左侧点踩、右侧点赞。
-- 关闭 response_buttons 时仍保留其文字/图标配置，执行端不显示。若保留了自定义图标，保存时仍验证引用有效。
-- 允许返回上一块时，执行端为重复观看生成新的记录；不修改原始 block ID。视频响应不可改选、Survey 可改选的执行逻辑由 Engineer 2/3 配合实现。
-- 实际实验运行应绑定保存时的配置版本或快照，后续编辑不能改变历史实验含义。
+- name, instruction.text, survey.question, and each option label must be nonempty after trimming whitespace.
+- Require at least one block. The survey prototype requires at least two options; the team must confirm the upper limit.
+- block.type discriminates instruction / video / survey. Prefer Pydantic discriminated unions over unstructured dictionaries.
+- The frontend generates UUIDs for blocks and options. Reordering preserves IDs; the backend validates duplicate IDs.
+- Array order matters for blocks and options. Do not maintain a separate, potentially conflicting order field.
+- randomization.mode is none / all / videos_only. This page only configures it; it does not calculate randomized results. Proposed videos_only behavior preserves non-video positions and shuffles only videos, subject to agreement by all three engineers.
+- A custom icon takes precedence over default_icon; null uses the default. Left defaults to thumbs-down and right to thumbs-up.
+- Disabling response_buttons preserves labels and icons but hides buttons in the runner. Retained custom icon references must still be valid when saving.
+- If back navigation is allowed, the runner creates a new record for repeat viewing without changing the original block ID. Engineer 2 and Engineer 3 implement immutable video responses and changeable survey responses together.
+- Actual study runs should reference a saved configuration revision or snapshot so later edits cannot change the meaning of historical runs.
 
-## 4. 文件上传约定
+## 4. File Upload Contract
 
-### 申请上传
+### Request Upload Credentials
 
-请求示例：
+Example request:
 
 ```json
 {
@@ -124,9 +124,9 @@ StudyRead 返回上面全部字段，并增加：
 }
 ```
 
-kind 为 video 或 button_icon。类型与体积上限由 Engineer 3 根据存储和目标平板能力确认；浏览器文件类型提示不属于安全验证。
+kind is video or button_icon. Engineer 3 must confirm supported formats and size limits based on storage and target-tablet capabilities. Browser file-type hints are not security validation.
 
-建议响应：
+Proposed response:
 
 ```json
 {
@@ -138,9 +138,9 @@ kind 为 video 或 button_icon。类型与体积上限由 Engineer 3 根据存�
 }
 ```
 
-upload_url 为后端动态签发的地址，示例不可直接使用。method 和 headers 以存储服务实际要求返回，可约定 PUT 或 POST；前端不拼接存储地址，也不将业务 Bearer token 自动转发给存储域名。
+upload_url is dynamically signed by the backend; the example URL is not usable. Return the method and headers required by the storage provider, agreeing on PUT or POST. The frontend must not construct storage URLs or automatically forward the application Bearer token to the storage domain.
 
-上传请求体为文件二进制，按返回的 method/headers 发送。成功后调用 complete，body 可为空。建议完成响应：
+Send raw file bytes using the returned method and headers. After upload succeeds, call complete; its request body may be empty. Proposed completion response:
 
 ```json
 {
@@ -153,23 +153,23 @@ upload_url 为后端动态签发的地址，示例不可直接使用。method �
 }
 ```
 
-complete 必须由服务端验证对象，不能相信前端声称上传完成。未完成或未就绪的资源不可被 Study 引用。需耗时处理时可以返回 202，但须同时补充状态查询接口并与 Engineer 1 确认，不能悄悄改变为异步流程。
+The server must verify the object during complete rather than trust a frontend claim. Incomplete or unready assets cannot be referenced by a Study. If processing requires a 202 response, also provide a status endpoint and agree on this with Engineer 1; do not silently switch to an asynchronous flow.
 
-### 前端切换流程
+### Frontend Integration Sequence
 
-1. 为每个 LocalMedia 申请上传凭证。
-2. 上传文件并调用 complete。
-3. 记录 `LocalMedia.id → asset_id` 映射。
-4. 调用现有 `buildStudyPayload(draft, uploadedAssets)`。
-5. 将得到的 StudyPayload 发给创建接口。
-6. 只有创建响应成功，才显示云端保存成功；失败保留编辑内容。
-7. 移除/关闭 demo 失败开关和模拟成功文案，区分上传中、保存中与错误。
+1. Request upload credentials for each LocalMedia item.
+2. Upload the file and call complete.
+3. Store the `LocalMedia.id → asset_id` mapping.
+4. Call the existing `buildStudyPayload(draft, uploadedAssets)`.
+5. Send the resulting StudyPayload to the create endpoint.
+6. Show cloud-save success only after a successful create response; preserve edits on failure.
+7. Enable Save after integration and display actual uploading, saving, and error states.
 
-适配函数遇到未上传资源会抛错，不会把 File、blob URL 或本地文件名伪装成资源 ID。现有本地预览 ready 状态仅代表浏览器可读取，不等于后端上传完成。
+The adapter throws for missing uploaded assets. It never disguises File objects, blob URLs, or local filenames as asset IDs. The existing local-preview ready state means the browser can read the file, not that a backend upload has completed.
 
-## 5. 失败响应与权限
+## 5. Errors and Authorization
 
-建议统一业务错误结构：
+Proposed shared application-error structure:
 
 ```json
 {
@@ -181,25 +181,25 @@ complete 必须由服务端验证对象，不能相信前端声称上传完成�
 }
 ```
 
-| 状态码 | 情况 | 前端行为 |
+| Status | Situation | Frontend Behavior |
 | --- | --- | --- |
-| 401 | 未认证/凭证过期 | 提示重新认证，保留当前编辑 |
-| 403 | 无操作权限 | 提示权限不足，不自动重试 |
-| 404 | Study 或 Asset 不存在 | 显示资源不可用 |
-| 409 | 版本冲突或资源未就绪 | 保留编辑，提示处理冲突或完成上传 |
-| 413 | 文件过大 | 提示大小限制并重新选择 |
-| 422 | 字段验证失败 | 显示字段错误 |
-| 5xx / 网络失败 | 后端或网络错误 | 保留编辑并允许重试 |
+| 401 | Unauthenticated or expired credentials | Request authentication again and preserve edits |
+| 403 | Insufficient permissions | Explain the permission issue; do not retry automatically |
+| 404 | Study or Asset does not exist | Show that the resource is unavailable |
+| 409 | Revision conflict or asset not ready | Preserve edits; request conflict resolution or upload completion |
+| 413 | File too large | Explain the size limit and request another file |
+| 422 | Field validation failure | Display field errors |
+| 5xx / network failure | Backend or network error | Preserve edits and allow retry |
 
-422 可以保留 FastAPI 默认 detail 数组（loc / msg / type）。前端请求层统一转换：例如 loc 中的 blocks 索引映射到提交快照中的 block.id。不要假设所有错误的 detail 都是同一种形状。
+422 may retain FastAPI's default detail array (loc / msg / type). Normalize errors in the frontend request layer. For example, map a blocks index in loc to block.id in the submitted snapshot. Do not assume every error uses the same detail shape.
 
-后端需要验证资源所有者、研究者权限、资源用途和状态；数据库 secret key 只存在后端。配置本地前端 origin 的 CORS；不要以开放 CORS 代替认证。Storage 建议私有桶，通过受限凭证上传及读取。
+The backend must validate asset ownership, researcher permissions, asset purpose, and readiness. Database secret keys belong only on the backend. Configure CORS for the local frontend origin; permissive CORS is not authentication. Prefer private storage buckets with restricted upload and read credentials.
 
-创建请求建议支持 Idempotency-Key：同一次保存的网络重试沿用同一 key，避免“后端保存成功但响应丢失”产生重复实验；同 key 不同请求体应拒绝。对应前端重试行为需在接入时实现。
+Create requests should support Idempotency-Key. Reuse the same key for retries of the same save to avoid duplicate studies when the server saves successfully but the response is lost. Reject the same key with a different payload. Implement matching frontend retry behavior during integration.
 
-## 6. FastAPI Router 组织方式
+## 6. FastAPI Router Organization
 
-建议增加以下文件，不修改现有点击测试接口：
+Add the following files without modifying the existing click-test endpoint:
 
 ```text
 backend/app/routers/studies.py
@@ -210,7 +210,7 @@ backend/app/services/studies.py
 backend/app/services/assets.py
 ```
 
-以下仅为结构示例，引用的模型、认证依赖及 service 需要 Engineer 3 实现：
+This is a structural example only. Engineer 3 must implement the referenced schemas, authentication dependency, and services:
 
 ```python
 from uuid import UUID
@@ -238,18 +238,18 @@ def update_study(
     return studies.update(study_id, payload, user)
 ```
 
-在 main.py 用 app.include_router 注册 studies 和 assets 的 router。StudyCreate 与前端 StudyPayload 对齐；StudyUpdate 增加 base_revision；StudyRead 增加第 3 节响应元数据。上例未展开 Idempotency-Key 和错误处理，正式实现需要补齐约定。
+Register the studies and assets routers in main.py using app.include_router. Align StudyCreate with the frontend StudyPayload; add base_revision to StudyUpdate and the response metadata from Section 3 to StudyRead. The example omits Idempotency-Key and error handling; the actual implementation must complete those parts of the contract.
 
-## 7. 最小联调验收
+## 7. Minimum Integration Acceptance Checks
 
-- 创建一个 Instructions 实验，GET 返回内容和顺序一致。
-- 增加一个已完成上传的视频，保存后资源引用可由平板解析。
-- Survey 选项和固定 ID 在保存、读取、排序后保持一致。
-- 空名称、空 block 内容、重复 ID、未就绪或越权资源被拒绝。
-- 保存失败时前端内容保留；同一次创建重试不产生重复实验。
-- PUT 使用正确版本成功；旧版本返回 409。
-- 未认证和无权限请求不能读写 Study/Asset。
-- 提供 OpenAPI、脱敏请求/响应示例、迁移文件、后端测试及环境变量模板；不交付真实密钥。
+- Create a study with Instructions; GET returns matching content and order.
+- Add a completed video upload; the tablet can resolve its saved asset reference.
+- Survey options and stable IDs survive saving, reading, and reordering.
+- Reject empty names, empty block content, duplicate IDs, and unready or unauthorized assets.
+- Preserve frontend edits after failed saves; retrying the same creation must not duplicate the study.
+- PUT succeeds with the correct revision and returns 409 for an outdated revision.
+- Unauthenticated or unauthorized requests cannot read or write Studies or Assets.
+- Deliver OpenAPI documentation, sanitized request/response examples, migrations, backend tests, and an environment-variable template. Do not deliver real secrets.
 
-页面仍处于 Mock 模式，以上真实接口及联调结果不得标记为已完成。
+The page currently provides a static frontend with real local editing only. The backend endpoints and integration checks above are not yet implemented.
 

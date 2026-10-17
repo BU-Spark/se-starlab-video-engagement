@@ -1,150 +1,58 @@
-# Researcher 创建实验静态页面开发说明
+# Researcher Study Creation: Static Frontend
 
-负责人：Engineer 1 / Louis  
-更新日期：2026-10-16  
-范围：三个月课程项目中的创建实验前端原型。
+Owner: Engineer 1 / Louis. Stage: Week 1, frontend only, without backend integration.
 
-当前已实现创建页的本地交互与模拟保存，尚未连接真实后端。交付批准使用项目 CI/CD 和人工评审，不设置独立文档审批流程。后端接入详见 [Engineer 3 接口交接说明](engineer3-handoff.md)。
+## 1. Goal and Scope
 
-## 1. 目标与范围
+Researchers can configure a study, add Instructions, Video, and Survey blocks, edit their content, reorder them, and preview local files.
 
-研究者可以在一个页面中填写实验设置，添加 Instructions、Video、Survey 三种 block，调整顺序，并演示保存过程。
+Cloud saving, uploads, synchronization, study execution, data export, audio recording, and camera access are not available. Save buttons are disabled, and the page explicitly states that the backend is not connected. Refreshing clears the current content. The previous simulated save service and simulated failure controls have been removed.
 
-本轮“静态页面”是**不依赖真实后端的可交互原型**。沿用现有 Next.js App Router、React、TypeScript、CSS Modules，不另建前端项目。
+## 2. Page and Features
 
-**包含：** 创建页面、实验设置、三种 block 编辑、增删排序、本地文件预览、字段校验、模拟保存成功与失败。
+Route: `/researcher/studies/new`. The layout follows the design: study settings above the block list, English interface text, white and gray surfaces, and BU-red accents.
 
-**不包含：** 真实登录、云端上传/保存、完整实验列表、已有实验读取、平板运行、行为计时、随机排序算法、监控与导出、录音/摄像头、拖拽排序、自动保存和刷新恢复。
+- Settings: study name; no, full, or videos-only randomization; video progress bar; response buttons; back navigation; and pause.
+- Response buttons: thumbs-down on the left and thumbs-up on the right by default. Researchers can customize labels or select local icons. Disabling the buttons preserves their configuration.
+- Instructions: plain-text input.
+- Video: select, replace, play, and remove local videos, with validation messages for invalid files.
+- Survey: edit the question and options, keeping at least two options.
+- Reordering and deletion: stable block IDs; moving blocks preserves content; deletion requires confirmation.
+- Required-field validation for names, instructions, questions, and options appears after leaving the corresponding field, without a simulated save.
+- All edits exist only in the current page. Randomization settings do not execute the tablet study algorithm.
 
-- Engineer 1：页面、交互、Mock 数据、前端校验、预留 API 调用入口。
-- Engineer 3：后续接口、鉴权、存储、上传及真实保存；监控与导出。
-- Engineer 2：平板执行；共同确认随机化和按钮含义等共享配置。
+## 3. Frontend and Backend Collaboration
 
-## 2. 页面与功能
+Engineer 1 owns the interface and local editing. Engineer 3 will implement APIs, authentication, storage, real uploads, and persistence. Engineer 2 owns the tablet runner and participates in confirming configuration semantics.
 
-### 页面布局
+The existing `buildStudyPayload` adapter will accept backend-confirmed asset IDs. Integration must use real requests and upload/save states, without restoring simulated success behavior.
 
-建议路径：`/researcher/studies/new`。采用设计稿的“上方设置、下方 block 列表”布局：
+See the [Engineer 3 API Handoff](engineer3-handoff.md) for routes, fields, and upload sequencing. Randomization behavior, supported asset formats, and draft-saving rules still require team agreement.
 
-1. 顶部导航：Studies、Saved Data、Create New；当前高亮 Create New，未实现入口禁用并说明暂未开放。
-2. 标题与操作：Create Study、保存状态、Save Demo。
-3. Experiment Settings：名称、随机化、显示及控制设置。
-4. Block 列表：类型、内容编辑区、上移/下移、删除。
-5. Add Block：选择类型并添加到末尾。
+## 4. Current CI
 
-界面先沿用设计稿英文文案。显著显示“Demo mode — 本地演示，不上传或同步数据”。配色及组件规范以课程确认的设计系统为准。
+Checks cover implemented functionality only: ESLint → three real browser tests → production build. All three tests must pass; there is no coverage-percentage gate.
 
-### 功能及完成标准
+- [Three Real Browser Tests](researcher-tests.md)
+- [CI, Local Commands, and Q2 Demo Guide](researcher-ci.md)
 
-| 功能 | 本轮行为与完成标准 |
-| --- | --- |
-| Study Name | 可编辑；去除首尾空格后不能为空；字段附近显示错误 |
-| Randomization | 可选 Off、All blocks、Videos only；仅保存配置，不打乱编辑列表；任意子集暂不实现 |
-| Video Bar | 开关可修改视频进度条配置 |
-| Response Buttons | 可设置左右图标、文字及启用状态；关闭时禁用相关编辑项，保留已填值 |
-| Controls | 可设置返回上一块、允许暂停；仅修改配置，不执行平板行为 |
-| Instructions | 编辑纯文本；保存时不能为空；不提供富文本或 HTML |
-| Video | 可选择、替换和预览本地视频，显示文件名；缺少文件或无法播放时提示 |
-| Survey | 可编辑题目、增删选项及填写文字；题目和选项不能为空；原型暂要求至少两项，数量从列表计算 |
-| Add Block | 添加指定类型的空 block，已有内容不变 |
-| Reorder | 上下移动不改变 block ID 和内容；首块上移、末块下移禁用 |
-| Delete | 确认后删除，取消不改变列表，其他内容保持不变 |
-| Save Demo | 校验后模拟保存；展示保存中、成功、失败；失败保留输入并允许重试 |
+## 5. Running and Delivering
 
-初始值建议：名称和 block 列表为空，随机化关闭，视频进度条与响应按钮开启，返回上一块与暂停关闭，按钮文字为空。以上不是客户已确认默认值。
+For full frontend development, run `npm run dev` and open http://localhost:3000/researcher/studies/new .
 
-按本轮确认，默认左侧点踩、右侧点赞，均支持自定义图标。录音与摄像头本轮不显示。
-
-### 保存和实现约定
-
-- 保存时检查：名称非空、至少一个 block、各 block 必填内容完整。
-- 状态包括初始、已修改、保存中、模拟成功、失败；保存期间禁用保存及编辑操作。
-- 成功显示“模拟保存成功，未上传云端”；继续编辑后恢复未保存状态。
-- 提供仅演示模式可见的模拟失败开关，便于验证错误和重试。
-- 数据仅在当前页面内存中保存；刷新或关闭会丢失，页面明确提示。不承诺刷新恢复。
-- 拆分设置区、BlockList、三种 Editor 和 SaveStatus；用 React 本地状态或 useReducer，不新增全局状态库。
-- block 和 Survey 选项使用固定 ID；数组顺序代表编排顺序，不用数组下标作为组件 key。
-- File 对象和预览 URL 属于临时 UI 状态；替换文件或卸载时释放预览 URL。
-- 模拟保存封装在独立服务入口，不混入表单组件。本轮不强制引入 MSW。
-
-## 3. 前后端约定
-
-本轮可在接口未完成时独立开发。以下为后续建议，不是已提供的接口：
-
-| 操作 | 建议接口 | 最小约定 |
-| --- | --- | --- |
-| 创建实验 | POST /api/v1/studies | 发送 name、settings、blocks；返回 id、revision、updated_at 和完整配置 |
-| 读取实验 | GET /api/v1/studies/{study_id} | 返回完整配置，供后续编辑页使用 |
-| 保存修改 | PUT /api/v1/studies/{study_id} | 发送完整配置与 base_revision；成功返回新版本，冲突不静默覆盖 |
-| 上传资源 | 待 Engineer 3 确认 | 明确上传方式和资源就绪判定；成功获得 asset_id |
-
-共享数据建议：settings 包含随机化、显示、控制和按钮配置；blocks 为有序数组，每项有固定 id 和 type。Instructions 用 text，Video 用 asset_id，Survey 用 question 和带固定 ID 的 options。
-
-真实保存只引用后端确认的 asset_id，不把电脑路径、blob URL 或文件名当作资源 ID。Mock 本地文件状态不能直接充当后端请求数据。
-
-后续在请求层统一读取 NEXT_PUBLIC_API_URL。字段、认证及错误结构以双方确认的 OpenAPI 为准，正式契约建立后直接链接，不重复维护完整定义。后端秘密密钥不得进入前端。
-
-### 联调前需确认
-
-- 随机化是否必须支持任意子集；仅视频模式是否固定其他 block 的位置。
-- 默认方向已按本轮确认采用左侧点踩、右侧点赞，需同步给平板端。
-- Survey 选项数量限制；视频与图标的类型、大小限制。
-- 是否允许保存不完整草稿；本轮暂采用完整必填校验。
-- 课程设计系统与认证方案要求在本项目中的适用范围。
-
-这些问题不阻塞布局和基础编辑，但未确认前不能宣称相关实验语义已联调完成。前端校验不能替代后端校验。
-
-## 4. 开发计划
-
-| 阶段 | 交付成果 | 完成条件 |
-| --- | --- | --- |
-| 1 页面布局 | 设置区、三种表单、导航和保存区 | 对照设计稿确认字段和层级完整 |
-| 2 本地交互 | 增删排序、预览、校验、Mock 保存 | 不启动后端也能演示完整创建流程和失败场景 |
-| 3 测试交接 | 关键测试、截图/录屏、接口需求清单 | CI 与人工评审通过，Engineer 3 能理解接入需求 |
-
-本轮仅交付静态交互原型。真实上传、云端保存和刷新重载属于后续联调，不计入本轮完成声明。日期按课堂安排确定；任务进度放 GitHub Issues，不在本文重复维护。
-
-## 5. 运行与交付
-
-### 运行方式
-
-页面实现且依赖可用后，在仓库根目录执行：
+To start an isolated researcher preview:
 
 ```powershell
-npm run dev
+npm run researcher:preview
 ```
 
-访问 `http://localhost:3000/researcher/studies/new`。页面已实现，不依赖 FastAPI、Docker 或 Supabase，不包含真实认证或数据库查询。保留原有首页不变。环境安装参考仓库 README。
+Open http://127.0.0.1:3102/researcher/studies/new .
 
-### 人工演示流程
+Run automated checks:
 
-1. 打开页面，确认演示模式和刷新丢失数据提示可见。
-2. 不填名称直接保存，确认错误提示出现。
-3. 输入名称，添加三种 block 并补全内容。
-4. 选择视频、检查预览，修改 Survey 选项与实验设置。
-5. 调整顺序，确认内容不串位；验证删除取消与确认。
-6. 保存，确认期间禁止编辑，随后提示模拟成功。
-7. 再次修改并模拟失败，确认内容保留且可重试。
-8. 刷新，确认回到初始状态，与提示一致。
+```powershell
+npx playwright install chromium
+npm run researcher:ci
+```
 
-### 交付检查
-
-- [ ] 第 2 节功能通过人工检查。
-- [x] 测试覆盖排序、删除、校验、保存失败保留内容。
-- [x] 核心输入具有关联标签，开关和排序按钮支持键盘操作。
-- [ ] PR 包含截图或录屏、验证步骤及已知限制。
-- [ ] lint、测试和构建完成验证；确认对应 PR 的 CI 确实运行。
-- [ ] 人工评审通过；Mock 功能未被描述为已完成云端功能。
-
-交付物为前端代码 PR、本文和测试/演示证据。文档写约定，Issues 记进度，PR 留评审证据；变化时更新相关段落，不增加长期版本规划或独立审批文档。
-
-### 本次本地验证记录
-
-- 完整 Jest 测试：7 个测试套件、53 项测试通过，其中新增 researcher 测试 22 项。
-- TypeScript 类型检查及新增 researcher 文件的 ESLint 检查通过。
-- Chrome 浏览器验证通过：1440px 桌面、390px 手机无横向溢出；三种 block、排序、删除确认/取消、保存失败/重试、刷新清空均正常。
-- 使用本地生成的测试视频验证了真实解码和播放；验证了开关的空格操作和 Tab 键导航。未观察到浏览器异常或业务 API 请求。
-- 标准 `npm run build` 已完成编译，但在 lint 阶段被原有模板文件的 CRLF 换行格式错误阻挡；没有批量修改旧文件。
-- 诊断命令 `npm run build -- --no-lint` 的编译、类型检查和静态页面生成通过。这不代表完整构建或 CI 已通过，也没有修改 lint 配置。
-- 本次预览：`http://localhost:3010/researcher/studies/new`，使用已生成的生产构建；正常开发仍使用上面的 dev 命令。
-- package-lock.json 的冲突内容已修复并单独暂存以标记冲突解决；未创建提交、PR 或远程部署。
+Deliverables include frontend code, three browser tests, CI configuration, and the API handoff. Use GitHub Issues for tasks and pull requests for reviews and results; no additional document-approval process is required.
