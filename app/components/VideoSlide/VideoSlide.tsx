@@ -10,6 +10,12 @@ import styles from './VideoSlide.module.css';
 const THUMB_PATH =
   'M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z';
 
+const PlayIcon = () => (
+  <svg viewBox="0 0 24 24" className={styles.pausedBadge} aria-label="Paused" role="img">
+    <path d="M8 5.14v13.72a1 1 0 0 0 1.5.86l11-6.86a1 1 0 0 0 0-1.72l-11-6.86A1 1 0 0 0 8 5.14z" fill="currentColor" />
+  </svg>
+);
+
 const ThumbIcon = ({ down }: { down?: boolean }) => (
   <svg viewBox="0 0 24 24" className={clsx(styles.thumb, down && styles.thumbDown)} aria-hidden="true">
     <path d={THUMB_PATH} fill="currentColor" />
@@ -78,7 +84,6 @@ export const VideoSlide = ({
       type="button"
       className={clsx(
         styles.responseButton,
-        side === 'Left' ? styles.left : styles.right,
         response === side && styles.chosen,
         response !== null && response !== side && styles.dimmed
       )}
@@ -94,7 +99,7 @@ export const VideoSlide = ({
         downAt.current = null;
       }}
     >
-      <span className={styles.iconCircle}>
+      <span className={styles.icon}>
         {iconSrc ? (
           // eslint-disable-next-line @next/next/no-img-element -- blob URL from the preloader
           <img src={iconSrc} alt="" className={styles.customIcon} />
@@ -119,21 +124,18 @@ export const VideoSlide = ({
         onPlay={() => setPaused(false)}
         onPause={() => setPaused(true)}
       />
+      <div className={styles.scrim} />
       {display.videoBar && (
         <div className={styles.barTrack}>
           <div ref={barRef} className={styles.barFill} />
         </div>
       )}
-      {active && paused && controls.pausing && (
-        <div className={styles.pausedBadge} aria-label="Paused">
-          ❚❚
-        </div>
-      )}
+      {active && paused && controls.pausing && <PlayIcon />}
       {controls.responseButtons && (
-        <>
-          {responseButton('Left', leftIconSrc, display.leftText)}
+        <div className={styles.rail}>
           {responseButton('Right', rightIconSrc, display.rightText)}
-        </>
+          {responseButton('Left', leftIconSrc, display.leftText)}
+        </div>
       )}
     </div>
   );

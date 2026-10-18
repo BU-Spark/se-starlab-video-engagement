@@ -30,7 +30,6 @@ export const SurveySlide = ({ block, selected, onChoose }: SurveySlideProps) => 
               downAt.current = null;
             }}
           >
-            <span className={styles.bubble} aria-hidden="true" />
             {option}
           </button>
         ))}

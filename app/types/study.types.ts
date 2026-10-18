@@ -6,7 +6,7 @@
  */
 
 export interface StudyDisplaySettings {
-  /** Show a progress bar for each video at the top of the screen */
+  /** Show a progress bar for each video along the bottom of the screen */
   videoBar: boolean;
   /** Custom image URL for the left response button. Defaults to a thumbs down. */
   leftIcon?: string;

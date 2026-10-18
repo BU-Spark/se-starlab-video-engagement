@@ -2,6 +2,8 @@
   position: absolute;
   inset: 0;
   background: #000;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Roboto, Arial, sans-serif;
 }
 
 .video {
@@ -11,18 +13,29 @@
   pointer-events: none;
 }
 
+/* Dark fades at the top and bottom, like TikTok/Reels, so white overlay icons stay readable. */
+.scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.35) 0%, transparent 15%),
+    linear-gradient(to top, rgba(0, 0, 0, 0.55) 0%, transparent 35%);
+}
+
+/* Thin scrubber along the bottom edge, as in TikTok. */
 .barTrack {
   position: absolute;
-  top: 0;
+  bottom: 0;
   left: 0;
   right: 0;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.25);
+  height: 3px;
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .barFill {
   height: 100%;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.9);
   transform: scaleX(0);
   transform-origin: left center;
 }
@@ -31,56 +44,56 @@
   position: absolute;
   top: 50%;
   left: 50%;
+  width: 5.5rem;
+  height: 5.5rem;
   transform: translate(-50%, -50%);
-  font-size: 4rem;
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255, 255, 255, 0.55);
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.4));
   pointer-events: none;
 }
 
-.responseButton {
+/* Vertical action column on the right edge. */
+.rail {
   position: absolute;
-  bottom: 2rem;
+  right: 0.75rem;
+  bottom: 6rem;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.35rem;
+  gap: 1.75rem;
+}
+
+.responseButton {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0;
   border: none;
   background: none;
   color: #fff;
   font: inherit;
   cursor: pointer;
-  transition:
-    opacity 0.15s,
-    transform 0.15s;
+  transition: opacity 0.15s;
 }
 
 .responseButton:disabled {
   cursor: default;
 }
 
-.left {
-  left: 1.5rem;
-}
-
-.right {
-  right: 1.5rem;
-}
-
-.iconCircle {
+.icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 4.5rem;
-  height: 4.5rem;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.9);
-  color: #222;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  width: 3.5rem;
+  height: 3.5rem;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.5));
+  transition: color 0.15s;
 }
 
 .thumb {
-  width: 2.25rem;
-  height: 2.25rem;
+  width: 2.9rem;
+  height: 2.9rem;
 }
 
 .thumbDown {
@@ -88,28 +101,34 @@
 }
 
 .customIcon {
-  width: 2.75rem;
-  height: 2.75rem;
+  width: 3rem;
+  height: 3rem;
   object-fit: contain;
 }
 
 .buttonText {
-  font-size: 1rem;
-  font-weight: 700;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
 }
 
-.chosen {
-  transform: scale(1.12);
-}
-
-.chosen .iconCircle {
-  background: #fff;
-  box-shadow:
-    0 0 0 4px #4ade80,
-    0 2px 8px rgba(0, 0, 0, 0.4);
+.chosen .icon {
+  color: #fe2c55;
+  animation: pop 0.35s cubic-bezier(0.3, 1.6, 0.5, 1);
 }
 
 .dimmed {
-  opacity: 0.35;
+  opacity: 0.4;
+}
+
+@keyframes pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.35);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
