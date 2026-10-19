@@ -11,6 +11,11 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
+    "researcher:lint": "eslint app/researcher tests/researcher playwright.researcher.config.ts scripts/researcher-build.mjs scripts/researcher-preview.mjs scripts/researcher-workspace.mjs --max-warnings=0 && prettier --check .github/workflows/researcher-ci.yml",
+    "researcher:test": "playwright test --config=playwright.researcher.config.ts",
+    "researcher:preview": "node scripts/researcher-preview.mjs",
+    "researcher:build": "node scripts/researcher-build.mjs",
+    "researcher:ci": "npm run researcher:lint && npm run researcher:test && npm run researcher:build",
     "prepare": "husky"
   },
   "dependencies": {
@@ -23,6 +28,7 @@
     "@eslint/compat": "^1.4.0",
     "@eslint/eslintrc": "^3.3.1",
     "@eslint/js": "^9.37.0",
+    "@playwright/test": "1.64.1",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
