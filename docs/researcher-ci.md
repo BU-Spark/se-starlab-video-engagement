@@ -63,25 +63,5 @@ The Actions run summary shows lint, browser-test, and build outcomes. The `resea
 
 Local success does not establish GitHub Actions success. Commit and push the workflow and supporting files, then verify an actual remote run before recording. Do not describe this pipeline as automatic deployment or backend verification.
 
-## Q2: One-Minute Demo
 
-Prepare a completed, genuine Researcher CI run before recording; dependency installation and compilation do not need to fit inside the recording. Keep the workflow file, run logs, and summary ready in browser tabs.
-
-| Time | Show | Explain |
-| --- | --- | --- |
-| 0–8 seconds | Actions → Researcher CI; the run event, branch, and commit | A relevant push or pull request starts this workflow. |
-| 8–18 seconds | Workflow steps or the expanded job | ESLint runs first, browser tests follow, and the build runs only after success. |
-| 18–32 seconds | ESLint success and the browser-test log showing three passed tests | Checks cover settings, block editing, and real local video playback, without backend mocks. |
-| 32–46 seconds | The production-build log and researcher route output | The actual researcher page compiles successfully; a failed earlier check would skip this build. |
-| 46–60 seconds | Run summary and browser-report artifact | Explain the green results, scope, and diagnostic report. Linting and build automation satisfy the two required activities. |
-
-Suggested English narration:
-
-> This is our Researcher CI workflow in GitHub Actions, triggered by this frontend change. It first runs ESLint, then three Playwright tests in a real Chromium browser. These check page settings, block editing, and local video playback. The log shows all three passed. Only after successful checks does Next.js build the researcher page. Here is the successful build output and route. The summary shows all checks succeeded, and the report artifact provides detailed test results. This demonstrates code linting and build automation, with browser tests as an extra check. It validates our current static frontend, not backend saving or deployment.
-
-If showing a failed run, use an existing genuine failure and explain the failed step and skipped build. A separate failure demonstration is optional under the supplied rubric.
-
-## Q3: README Submission
-
-This file covers the CI tool, implemented tasks, triggers, and challenges. After pushing it, submit the GitHub URL of this file as the README link. Submit the recording link separately for Q2.
 
