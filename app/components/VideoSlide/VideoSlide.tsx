@@ -113,54 +113,37 @@ export const VideoSlide = ({
     }
   };
 
-  const responseButton = (side: ButtonSide, iconSrc: string | undefined, text: string) => {
-    const content = (
-      <>
-        <span className={styles.icon}>
-          {iconSrc ? (
-            // eslint-disable-next-line @next/next/no-img-element -- blob URL from the preloader
-            <img src={iconSrc} alt="" className={styles.customIcon} />
-          ) : (
-            <ThumbIcon down={side === 'Left'} />
-          )}
-        </span>
-        {text && <span className={styles.buttonText}>{text}</span>}
-      </>
-    );
-
-    // Decorative unless the study makes them pressable: a tap falls through to the video.
-    if (!controls.responseButtonsPressable) {
-      return (
-        <span className={clsx(styles.responseButton, styles.decorative)} data-side={side} aria-hidden="true">
-          {content}
-        </span>
-      );
-    }
-
-    return (
-      <button
-        type="button"
-        className={clsx(
-          styles.responseButton,
-          response === side && styles.chosen,
-          response !== null && response !== side && styles.dimmed
+  const responseButton = (side: ButtonSide, iconSrc: string | undefined, text: string) => (
+    <button
+      type="button"
+      className={clsx(
+        styles.responseButton,
+        response === side && styles.chosen,
+        response !== null && response !== side && styles.dimmed
+      )}
+      aria-pressed={response === side}
+      aria-label={text || (side === 'Left' ? 'Dislike' : 'Like')}
+      disabled={response !== null}
+      onPointerDown={(e) => {
+        downAt.current = e.timeStamp;
+      }}
+      onClick={(e) => {
+        e.stopPropagation(); // don't also toggle pause
+        onButton(side, downAt.current ?? e.timeStamp);
+        downAt.current = null;
+      }}
+    >
+      <span className={styles.icon}>
+        {iconSrc ? (
+          // eslint-disable-next-line @next/next/no-img-element -- blob URL from the preloader
+          <img src={iconSrc} alt="" className={styles.customIcon} />
+        ) : (
+          <ThumbIcon down={side === 'Left'} />
         )}
-        aria-pressed={response === side}
-        aria-label={text || (side === 'Left' ? 'Dislike' : 'Like')}
-        disabled={response !== null}
-        onPointerDown={(e) => {
-          downAt.current = e.timeStamp;
-        }}
-        onClick={(e) => {
-          e.stopPropagation(); // don't also toggle pause
-          onButton(side, downAt.current ?? e.timeStamp);
-          downAt.current = null;
-        }}
-      >
-        {content}
-      </button>
-    );
-  };
+      </span>
+      {text && <span className={styles.buttonText}>{text}</span>}
+    </button>
+  );
 
   const openSheet = (which: 'share' | 'comment') => {
     setSheet(which);

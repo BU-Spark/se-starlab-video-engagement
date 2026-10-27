@@ -199,26 +199,25 @@ A minimal study:
 
 #### Turning features on and off
 
-The newer settings (`responseButtonsPressable`, `shareOptions`, the comment / save / share buttons, `pauseOnShare`, `randomGroup`, captions and comments) can be left out entirely: left out means **off**, or the default shown, so older studies keep working. The rest are required.
+The newer settings (`shareOptions`, the comment / save / share buttons, `pauseOnShare`, `randomGroup`, captions and comments) can be left out entirely: left out means **off**, or the default shown, so older studies keep working. The rest are required.
 
-| Setting                             | Where      | What it does                                                                                                                |
-| ----------------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `display.videoBar`                  | `display`  | Thin progress bar along the bottom of each video                                                                            |
-| `display.leftText` / `rightText`    | `display`  | Labels under the dislike / like buttons (`""` for none)                                                                     |
-| `display.leftIcon` / `rightIcon`    | `display`  | Image URLs to replace the thumbs-down / thumbs-up icons                                                                     |
-| `display.shareOptions`              | `display`  | Options in the share panel. Default: Copy link, Messages, Email, Repost, More                                               |
-| `controls.responseButtons`          | `controls` | Show the like / dislike buttons                                                                                             |
-| `controls.responseButtonsPressable` | `controls` | Let participants tap like / dislike to record a response (`Button_press` / `Button_time`). Default: shown but not pressable |
-| `controls.commentButton`            | `controls` | Show the comment button; it opens a panel listing that video's `comments`                                                   |
-| `controls.saveButton`               | `controls` | Show the save button; it toggles on/off like TikTok                                                                         |
-| `controls.shareButton`              | `controls` | Show the share button; it opens the share panel                                                                             |
-| `controls.pauseOnShare`             | `controls` | Pause the video while the share or comments panel is open. Default: keeps playing, like Shorts/Reels                        |
-| `controls.pausing`                  | `controls` | Tapping the video pauses / resumes it                                                                                       |
-| `controls.swipeUp`                  | `controls` | Participants can swipe back to the previous block                                                                           |
-| `randomized`                        | study      | Shuffle every block for each participant                                                                                    |
-| `randomGroup`                       | block      | Blocks with the same `randomGroup` name are shuffled among themselves; all other blocks stay put                            |
-| video `title` / `description`       | block      | Caption in the bottom-left of the video. Blank hides it                                                                     |
-| video `comments`                    | block      | Read-only comments shown when the comment button is tapped: `{ author, text, likes? }`                                      |
+| Setting                          | Where      | What it does                                                                                         |
+| -------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------- |
+| `display.videoBar`               | `display`  | Thin progress bar along the bottom of each video                                                     |
+| `display.leftText` / `rightText` | `display`  | Labels under the dislike / like buttons (`""` for none)                                              |
+| `display.leftIcon` / `rightIcon` | `display`  | Image URLs to replace the thumbs-down / thumbs-up icons                                              |
+| `display.shareOptions`           | `display`  | Options in the share panel. Default: Copy link, Messages, Email, Repost, More                        |
+| `controls.responseButtons`       | `controls` | Show the like / dislike buttons (the main recorded response)                                         |
+| `controls.commentButton`         | `controls` | Show the comment button; it opens a panel listing that video's `comments`                            |
+| `controls.saveButton`            | `controls` | Show the save button; it toggles on/off like TikTok                                                  |
+| `controls.shareButton`           | `controls` | Show the share button; it opens the share panel                                                      |
+| `controls.pauseOnShare`          | `controls` | Pause the video while the share or comments panel is open. Default: keeps playing, like Shorts/Reels |
+| `controls.pausing`               | `controls` | Tapping the video pauses / resumes it                                                                |
+| `controls.swipeUp`               | `controls` | Participants can swipe back to the previous block                                                    |
+| `randomized`                     | study      | Shuffle every block for each participant                                                             |
+| `randomGroup`                    | block      | Blocks with the same `randomGroup` name are shuffled among themselves; all other blocks stay put     |
+| video `title` / `description`    | block      | Caption in the bottom-left of the video. Blank hides it                                              |
+| video `comments`                 | block      | Read-only comments shown when the comment button is tapped: `{ author, text, likes? }`               |
 
 Comments, captions and share options are just text. Nothing is actually posted or shared.
 

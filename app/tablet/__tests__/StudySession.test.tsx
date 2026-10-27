@@ -7,14 +7,7 @@ const study: Study = {
   name: 'Demo',
   randomized: false,
   display: { videoBar: true, leftText: 'Dislike', rightText: 'Like' },
-  controls: {
-    swipeUp: true,
-    responseButtons: true,
-    responseButtonsPressable: true,
-    pausing: true,
-    audioRecord: false,
-    cameraRecord: false,
-  },
+  controls: { swipeUp: true, responseButtons: true, pausing: true, audioRecord: false, cameraRecord: false },
   blocks: [
     { id: 'b1', type: 'instructions', label: 'instruction1', text: 'Welcome' },
     { id: 'b2', type: 'video', label: 'video1', videoUrl: '/v1.mp4', fileName: 'v1.mp4' },

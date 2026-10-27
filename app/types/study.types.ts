@@ -26,11 +26,6 @@ export interface StudyControlSettings {
   /** Show the left/right response buttons over videos */
   responseButtons: boolean;
   /**
-   * Let participants tap the like/dislike buttons to record a response (Button_press / Button_time).
-   * Omitted counts as off: the buttons are shown but not pressable, and a tap acts like a tap on the video.
-   */
-  responseButtonsPressable?: boolean;
-  /**
    * Extra TikTok/Reels-style buttons on the right-hand rail, each switched on or off per study.
    * Omitted counts as off, so older studies keep working.
    */
