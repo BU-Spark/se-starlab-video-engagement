@@ -2,8 +2,7 @@
   position: absolute;
   inset: 0;
   background: #000;
-  font-family:
-    -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Roboto, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Roboto, Arial, sans-serif;
 }
 
 .video {
@@ -50,6 +49,42 @@
   color: rgba(255, 255, 255, 0.55);
   filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.4));
   pointer-events: none;
+}
+
+/* Title and description in the bottom-left corner, like a TikTok/Reels post caption. */
+.caption {
+  position: absolute;
+  left: 1rem;
+  right: 1rem;
+  bottom: 1.5rem;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+  pointer-events: none;
+}
+
+/* Keep clear of the response buttons on the right edge. */
+.captionBesideRail {
+  right: 5.5rem;
+}
+
+.title {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.description {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.35;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  overflow: hidden;
 }
 
 /* Vertical action column on the right edge. */
@@ -115,6 +150,24 @@
 .chosen .icon {
   color: #fe2c55;
   animation: pop 0.35s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+
+.sideButton {
+  padding: 0;
+  border: none;
+  background: none;
+  color: #fff;
+  cursor: pointer;
+}
+
+.saved .icon {
+  color: #facd00;
+  animation: pop 0.35s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+
+.sideIcon {
+  width: 2.6rem;
+  height: 2.6rem;
 }
 
 .dimmed {

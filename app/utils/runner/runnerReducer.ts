@@ -16,6 +16,11 @@ interface CurrentViewing {
   buttonPress: string | null;
   /** ms from startedAt to the (first) response */
   buttonTimeMs: number | null;
+  shareTimeMs: number | null;
+  shareChoice: string | null;
+  commentTimeMs: number | null;
+  saveTimeMs: number | null;
+  saved: boolean;
 }
 
 export interface RunnerState {
@@ -31,7 +36,11 @@ export type RunnerAction =
   | { type: 'next'; now: number; iso: string }
   | { type: 'previous'; now: number; iso: string }
   | { type: 'button'; side: ButtonSide; now: number }
-  | { type: 'bubble'; option: string; now: number };
+  | { type: 'bubble'; option: string; now: number }
+  | { type: 'shareOpen'; now: number }
+  | { type: 'shareChoice'; choice: string; cancel: boolean }
+  | { type: 'commentOpen'; now: number }
+  | { type: 'save'; now: number };
 
 export function createRunnerState(blocks: Block[]): RunnerState {
   return { blocks, index: 0, current: null, rows: [], finished: false };
@@ -42,7 +51,18 @@ function stimulusFor(block: Block): string {
 }
 
 function beginViewing(block: Block, now: number, iso: string): CurrentViewing {
-  return { blockId: block.id, startedAt: now, startedAtIso: iso, buttonPress: null, buttonTimeMs: null };
+  return {
+    blockId: block.id,
+    startedAt: now,
+    startedAtIso: iso,
+    buttonPress: null,
+    buttonTimeMs: null,
+    shareTimeMs: null,
+    shareChoice: null,
+    commentTimeMs: null,
+    saveTimeMs: null,
+    saved: false,
+  };
 }
 
 function finishViewing(state: RunnerState, now: number, swipedUp: 0 | 1): BlockResult[] {
@@ -59,6 +79,11 @@ function finishViewing(state: RunnerState, now: number, swipedUp: 0 | 1): BlockR
       swipedUp,
       buttonPress: current.buttonPress,
       buttonTimeMs: current.buttonTimeMs,
+      shareTimeMs: current.shareTimeMs,
+      shareChoice: current.shareChoice,
+      commentTimeMs: current.commentTimeMs,
+      saveTimeMs: current.saveTimeMs,
+      saved: current.saved ? 1 : 0,
       startedAtIso: current.startedAtIso,
     },
   ];
@@ -121,6 +146,43 @@ export function runnerReducer(state: RunnerState, action: RunnerAction): RunnerS
           ...state.current,
           buttonPress: action.option,
           buttonTimeMs: state.current.buttonTimeMs ?? Math.round(action.now - state.current.startedAt),
+        },
+      };
+    }
+
+    case 'shareOpen': {
+      // Time of the first tap on share; reopening does not move it.
+      if (!state.current || state.current.shareTimeMs !== null) return state;
+      return {
+        ...state,
+        current: { ...state.current, shareTimeMs: Math.round(action.now - state.current.startedAt) },
+      };
+    }
+
+    case 'shareChoice': {
+      // The latest option picked wins, but a cancel is only recorded if nothing was recorded yet.
+      if (!state.current) return state;
+      if (action.cancel && state.current.shareChoice !== null) return state;
+      return { ...state, current: { ...state.current, shareChoice: action.choice } };
+    }
+
+    case 'commentOpen': {
+      if (!state.current || state.current.commentTimeMs !== null) return state;
+      return {
+        ...state,
+        current: { ...state.current, commentTimeMs: Math.round(action.now - state.current.startedAt) },
+      };
+    }
+
+    case 'save': {
+      // Each tap toggles; the time is of the first tap and `saved` is the state when leaving.
+      if (!state.current) return state;
+      return {
+        ...state,
+        current: {
+          ...state.current,
+          saved: !state.current.saved,
+          saveTimeMs: state.current.saveTimeMs ?? Math.round(action.now - state.current.startedAt),
         },
       };
     }

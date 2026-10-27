@@ -86,4 +86,45 @@ describe('runnerReducer', () => {
     const initial = createRunnerState(blocks);
     expect(runnerReducer(initial, { type: 'next', now: 5, iso })).toBe(initial);
   });
+
+  it('records the first share tap time and the option picked', () => {
+    const state = run([
+      { type: 'start', now: 0, iso },
+      { type: 'next', now: 1000, iso },
+      { type: 'shareOpen', now: 3000 },
+      { type: 'shareChoice', choice: 'Email', cancel: false },
+      { type: 'shareOpen', now: 6000 },
+      { type: 'shareChoice', choice: 'Cancel', cancel: true },
+      { type: 'next', now: 8000, iso },
+    ]);
+    expect(state.rows[1]).toMatchObject({ shareTimeMs: 2000, shareChoice: 'Email' });
+    expect(state.rows[0]).toMatchObject({ shareTimeMs: null, shareChoice: null });
+  });
+
+  it('records Cancel when the share sheet is only dismissed', () => {
+    const state = run([
+      { type: 'start', now: 0, iso },
+      { type: 'shareOpen', now: 500 },
+      { type: 'shareChoice', choice: 'Cancel', cancel: true },
+      { type: 'next', now: 1000, iso },
+    ]);
+    expect(state.rows[0]).toMatchObject({ shareTimeMs: 500, shareChoice: 'Cancel' });
+  });
+
+  it('records the first comment tap and the save state when leaving', () => {
+    const state = run([
+      { type: 'start', now: 0, iso },
+      { type: 'commentOpen', now: 700 },
+      { type: 'commentOpen', now: 900 },
+      { type: 'save', now: 1200 },
+      { type: 'save', now: 1500 },
+      { type: 'save', now: 1800 },
+      { type: 'next', now: 2000, iso },
+      { type: 'save', now: 2500 },
+      { type: 'save', now: 2600 },
+      { type: 'next', now: 3000, iso },
+    ]);
+    expect(state.rows[0]).toMatchObject({ commentTimeMs: 700, saveTimeMs: 1200, saved: 1 });
+    expect(state.rows[1]).toMatchObject({ commentTimeMs: null, saveTimeMs: 500, saved: 0 });
+  });
 });

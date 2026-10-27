@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect } from 'react';
-import { useSwipe, type SwipeDirection } from '@/app/hooks';
+import { useSwipe, useWheelStep, type SwipeDirection, type WheelStep } from '@/app/hooks';
 import { ReelsViewportProps } from './ReelsViewport.types';
 import styles from './ReelsViewport.module.css';
 
@@ -38,6 +38,17 @@ export function ReelsViewport<T extends { id: string }>({
 
   const { dragY, dragging, wasDrag, handlers } = useSwipe({ onSwipe, canSwipe });
 
+  // Mouse wheel / trackpad on laptops: scrolling down moves to the next block, like YouTube Shorts.
+  const onWheel = useWheelStep(
+    useCallback(
+      (step: WheelStep, timeStamp: number) => {
+        const direction = step === 'next' ? NEXT_GESTURE : PREVIOUS_GESTURE;
+        if (canSwipe(direction)) onSwipe(direction, timeStamp);
+      },
+      [canSwipe, onSwipe]
+    )
+  );
+
   // Arrow keys make desktop testing easier; tablets have no keyboard.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -55,6 +66,7 @@ export function ReelsViewport<T extends { id: string }>({
     <div
       className={styles.viewport}
       {...handlers}
+      onWheel={onWheel}
       onClickCapture={(e) => {
         // A drag that ends over a button must not also count as a tap on it.
         if (wasDrag()) {

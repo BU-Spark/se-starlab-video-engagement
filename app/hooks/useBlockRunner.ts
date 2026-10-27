@@ -2,6 +2,7 @@
 
 import { useCallback, useReducer } from 'react';
 import type { Block, ButtonSide } from '@/app/types';
+import { CANCEL_CHOICE } from '@/app/components/ShareSheet';
 import { createRunnerState, runnerReducer } from '@/app/utils/runner';
 
 /**
@@ -28,7 +29,16 @@ function useBlockRunner(blocks: Block[]) {
     []
   );
 
-  return { state, start, next, previous, pressButton, chooseBubble };
+  const openShare = useCallback((at = performance.now()) => dispatch({ type: 'shareOpen', now: at }), []);
+  const chooseShare = useCallback(
+    (choice: string) => dispatch({ type: 'shareChoice', choice, cancel: choice === CANCEL_CHOICE }),
+    []
+  );
+
+  const openComments = useCallback((at = performance.now()) => dispatch({ type: 'commentOpen', now: at }), []);
+  const toggleSave = useCallback((at = performance.now()) => dispatch({ type: 'save', now: at }), []);
+
+  return { state, start, next, previous, pressButton, chooseBubble, openShare, chooseShare, openComments, toggleSave };
 }
 
 export default useBlockRunner;

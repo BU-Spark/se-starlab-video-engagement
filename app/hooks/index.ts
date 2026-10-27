@@ -15,4 +15,6 @@ export { default as useLocalStorage } from './useLocalStorage';
 export { default as useBlockRunner } from './useBlockRunner';
 export { default as useSwipe } from './useSwipe';
 export type { SwipeDirection } from './useSwipe';
+export { default as useWheelStep } from './useWheelStep';
+export type { WheelStep } from './useWheelStep';
 export { default as useKiosk } from './useKiosk';

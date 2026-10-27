@@ -123,6 +123,9 @@ export function TabletApp() {
 
   const backToStudies = () => {
     if (phase.name === 'participant' || phase.name === 'running') releaseMedia(phase.media);
+    // Fullscreen is only for the session itself. Staying in it afterwards stopped the next
+    // Participant ID box from taking typing until Esc; the next Start tap re-enters it.
+    kiosk.exit();
     setPhase({ name: 'select' });
     loadStudies();
   };
@@ -162,57 +165,59 @@ export function TabletApp() {
 
   return (
     <main className={styles.root}>
-      {phase.name === 'select' && (
-        <StudySelectScreen
-          studies={studies}
-          loading={studiesLoading}
-          error={studiesError}
-          pendingUploads={pendingRuns.length}
-          onSelect={selectStudy}
-          onReload={loadStudies}
-        />
-      )}
-
-      {phase.name === 'loading' && (
-        <PreloadScreen
-          studyName={phase.studyName}
-          progress={progress}
-          error={preloadError}
-          onRetry={() => {
-            setPreloadError(null);
-            setProgress(EMPTY_PROGRESS);
-            setPreloadAttempt((n) => n + 1);
-          }}
-          onCancel={backToStudies}
-        />
-      )}
-
-      {phase.name === 'participant' && (
-        <ParticipantIdScreen studyName={phase.study.name} onStart={startSession} onBack={backToStudies} />
-      )}
-
-      {phase.name === 'running' && (
-        <>
-          <StudySession
-            study={phase.study}
-            blocks={phase.blocks}
-            participantId={phase.participantId}
-            startedAtIso={phase.startedAtIso}
-            media={phase.media}
-            onComplete={completeSession}
+      <div className={styles.frame}>
+        {phase.name === 'select' && (
+          <StudySelectScreen
+            studies={studies}
+            loading={studiesLoading}
+            error={studiesError}
+            pendingUploads={pendingRuns.length}
+            onSelect={selectStudy}
+            onReload={loadStudies}
           />
-          <ResearcherExit pin={RESEARCHER_PIN} onExit={backToStudies} />
-          {kiosk.lostFullscreen && (
-            <button type="button" className={styles.resumeOverlay} onClick={() => kiosk.enter()}>
-              <span className={tabletStyles.primaryButton}>Tap to continue</span>
-            </button>
-          )}
-        </>
-      )}
+        )}
 
-      {phase.name === 'done' && (
-        <CompletionScreen status={phase.status} onRetry={retryUploads} onFinish={backToStudies} />
-      )}
+        {phase.name === 'loading' && (
+          <PreloadScreen
+            studyName={phase.studyName}
+            progress={progress}
+            error={preloadError}
+            onRetry={() => {
+              setPreloadError(null);
+              setProgress(EMPTY_PROGRESS);
+              setPreloadAttempt((n) => n + 1);
+            }}
+            onCancel={backToStudies}
+          />
+        )}
+
+        {phase.name === 'participant' && (
+          <ParticipantIdScreen studyName={phase.study.name} onStart={startSession} onBack={backToStudies} />
+        )}
+
+        {phase.name === 'running' && (
+          <>
+            <StudySession
+              study={phase.study}
+              blocks={phase.blocks}
+              participantId={phase.participantId}
+              startedAtIso={phase.startedAtIso}
+              media={phase.media}
+              onComplete={completeSession}
+            />
+            <ResearcherExit pin={RESEARCHER_PIN} onExit={backToStudies} />
+            {kiosk.lostFullscreen && (
+              <button type="button" className={styles.resumeOverlay} onClick={() => kiosk.enter()}>
+                <span className={tabletStyles.primaryButton}>Tap to continue</span>
+              </button>
+            )}
+          </>
+        )}
+
+        {phase.name === 'done' && (
+          <CompletionScreen status={phase.status} onRetry={retryUploads} onFinish={backToStudies} />
+        )}
+      </div>
     </main>
   );
 }

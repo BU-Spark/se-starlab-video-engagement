@@ -21,7 +21,8 @@ interface StudySessionProps {
 
 /** Runs one participant through every block and reports the RunResult when the last block is swiped away. */
 export function StudySession({ study, blocks, participantId, startedAtIso, media, onComplete }: StudySessionProps) {
-  const { state, start, next, previous, pressButton, chooseBubble } = useBlockRunner(blocks);
+  const { state, start, next, previous, pressButton, chooseBubble, openShare, chooseShare, openComments, toggleSave } =
+    useBlockRunner(blocks);
   const reported = useRef(false);
 
   useEffect(() => {
@@ -57,8 +58,16 @@ export function StudySession({ study, blocks, participantId, startedAtIso, media
             controls={study.controls}
             leftIconSrc={study.display.leftIcon && (media.get(study.display.leftIcon) ?? study.display.leftIcon)}
             rightIconSrc={study.display.rightIcon && (media.get(study.display.rightIcon) ?? study.display.rightIcon)}
+            title={block.title}
+            description={block.description}
+            comments={block.comments}
+            saved={active && (state.current?.saved ?? false)}
             response={active ? response : null}
             onButton={pressButton}
+            onShareOpen={openShare}
+            onShareChoice={chooseShare}
+            onCommentOpen={openComments}
+            onSave={toggleSave}
           />
         );
       case 'survey':
