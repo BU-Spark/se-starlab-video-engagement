@@ -1,0 +1,63 @@
+/* Fixed to the viewport so the tablet app ignores the site-wide padded container from the root layout. */
+.root {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  background: #000;
+  color: #fff;
+  overflow: hidden;
+  overscroll-behavior: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Everything the participant sees. Fills the screen on a tablet. */
+.frame {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+/*
+ * Laptops/desktops (mouse or trackpad): show a centred 9:16 phone-shaped column, like YouTube Shorts,
+ * instead of stretching to a landscape screen. Touch tablets have a coarse pointer and keep filling the screen.
+ */
+@media (hover: hover) and (pointer: fine) {
+  .root {
+    background: #0f0f0f;
+  }
+
+  .frame {
+    inset: auto;
+    top: 50%;
+    left: 50%;
+    height: min(calc(100dvh - 2rem), calc((100vw - 2rem) * 16 / 9));
+    aspect-ratio: 9 / 16;
+    transform: translate(-50%, -50%);
+    border-radius: 0.75rem;
+    background: #000;
+  }
+}
+
+.root input {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.resumeOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: rgba(0, 0, 0, 0.85);
+  cursor: pointer;
+}
+
+.resumeOverlay span {
+  display: inline-flex;
+  align-items: center;
+}

@@ -1,0 +1,73 @@
+.screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: 2rem 1.5rem;
+  background: #000;
+  color: #fff;
+  text-align: center;
+  overflow-y: auto;
+}
+
+.logo {
+  font-size: 2.5rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #cc0000;
+}
+
+.title {
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.body {
+  width: 100%;
+  max-width: 28rem;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1rem;
+}
+
+/* Shared building blocks for the setup screens */
+.primaryButton,
+.secondaryButton {
+  min-height: 3.5rem;
+  padding: 0 1.5rem;
+  border-radius: 0.75rem;
+  font: inherit;
+  font-size: 1.25rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 2px solid transparent;
+}
+
+.primaryButton {
+  background: #fff;
+  color: #000;
+}
+
+.primaryButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.secondaryButton {
+  background: transparent;
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.message {
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.error {
+  color: #ff8a8a;
+}
