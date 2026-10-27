@@ -6,6 +6,7 @@ const display: StudyDisplaySettings = { videoBar: true, leftText: 'Dislike', rig
 const controls: StudyControlSettings = {
   swipeUp: true,
   responseButtons: true,
+  responseButtonsPressable: true,
   pausing: true,
   audioRecord: false,
   cameraRecord: false,
@@ -37,6 +38,24 @@ describe('VideoSlide', () => {
     expect(screen.getByRole('button', { name: 'Dislike' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Like' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Dislike' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('shows like/dislike but makes them unpressable unless the study allows it', () => {
+    const onButton = jest.fn();
+    const { container } = render(
+      <VideoSlide
+        src="/v.mp4"
+        active
+        display={display}
+        controls={{ ...controls, responseButtonsPressable: undefined }}
+        response={null}
+        onButton={onButton}
+      />
+    );
+    expect(screen.queryByRole('button', { name: 'Like' })).not.toBeInTheDocument();
+    expect(container.querySelectorAll('[data-side]')).toHaveLength(2);
+    fireEvent.click(container.querySelector('[data-side="Right"]')!);
+    expect(onButton).not.toHaveBeenCalled();
   });
 
   it('hides the buttons when the study turns them off', () => {

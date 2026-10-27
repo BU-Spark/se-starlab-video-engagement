@@ -112,6 +112,10 @@
   transition: opacity 0.15s;
 }
 
+.decorative {
+  pointer-events: none;
+}
+
 .responseButton:disabled {
   cursor: default;
 }
