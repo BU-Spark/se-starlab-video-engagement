@@ -1,16 +1,25 @@
-import type { BlockInsert, BlockRow, BlockTypeValue, StudyInsert, StudyRow } from './database.types';
+import type {
+  BlockInsert,
+  BlockRow,
+  BlockTypeValue,
+  CommentJson,
+  StudyInsert,
+  StudyRow,
+} from '@/app/utils/supabase/database.types';
 
 export type BlockType = BlockTypeValue;
 
 /**
- * UI-level choice. It is not a column: it maps onto `studies.randomized`
- * plus `blocks.random_group` (see `toStudyRows`).
- * - off:    randomized = false
- * - all:    randomized = true, every block in group ALL_BLOCKS_GROUP
- * - groups: randomized = true, researcher-chosen groups; ungrouped blocks keep their position
+ * UI-level choice. It is not a column: it maps onto `studies.randomized` plus `blocks.random_group`
+ * following the tablet's rule in app/utils/runner/orderBlocks.ts (see `toStudyRows`).
+ * - off:    randomized = false, no groups → fixed order
+ * - all:    randomized = true → every block shuffled (groups are ignored, so none are stored)
+ * - groups: randomized = false, researcher-chosen groups → shuffled within each group, others fixed
  */
 export type RandomizationMode = 'off' | 'all' | 'groups';
-export const ALL_BLOCKS_GROUP = 'all';
+
+/** The tablet's share panel default (StudyDisplaySettings.shareOptions). */
+export const DEFAULT_SHARE_OPTIONS = ['Copy link', 'Messages', 'Email', 'Repost', 'More'];
 
 /** A file chosen in this browser session; uploaded to Storage on save. */
 export interface LocalMedia {
@@ -37,6 +46,12 @@ export function mediaName(media: Media): string {
   return media.kind === 'local' ? media.file.name : media.name;
 }
 
+/** An editable list entry (share options, survey options); the id is a local React key only. */
+export interface TextItem {
+  id: string;
+  label: string;
+}
+
 /** Field names follow public.studies so the save mapping stays one-to-one. */
 export interface StudySettings {
   randomization: RandomizationMode;
@@ -50,6 +65,13 @@ export interface StudySettings {
   right_button_icon: Media | null;
   allow_swipe_back: boolean;
   allow_pausing: boolean;
+  comment_button: boolean;
+  save_button: boolean;
+  share_button: boolean;
+  pause_on_share: boolean;
+  share_options: TextItem[];
+  audio_record: boolean;
+  camera_record: boolean;
 }
 
 export type ButtonSide = 'left' | 'right';
@@ -58,10 +80,14 @@ export const buttonKeys = {
   right: { text: 'right_button_text', icon: 'right_button_icon' },
 } as const;
 
-export interface SurveyOption {
-  /** Local React key only; blocks.options stores the labels as text[]. */
+export type SurveyOption = TextItem;
+
+/** A researcher-written comment shown in the tablet's comments panel. `likes` is the raw input text. */
+export interface DraftComment {
   id: string;
-  label: string;
+  author: string;
+  text: string;
+  likes: string;
 }
 
 interface BlockBase {
@@ -74,8 +100,8 @@ interface BlockBase {
 
 export type DraftBlock = BlockBase &
   (
-    | { type: 'instruction'; body: string }
-    | { type: 'video'; media: Media | null }
+    | { type: 'instructions'; body: string }
+    | { type: 'video'; media: Media | null; title: string; description: string; comments: DraftComment[] }
     | { type: 'survey'; prompt: string; options: SurveyOption[] }
   );
 
@@ -86,6 +112,18 @@ export interface StudyDraft {
 }
 
 export type ValidationErrors = Record<string, string>;
+
+export function createId(): string {
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  // getRandomValues also works in HTTP LAN previews and the Jest DOM environment.
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 15) | 64;
+  bytes[8] = (bytes[8] & 63) | 128;
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+  return [hex.slice(0, 8), hex.slice(8, 12), hex.slice(12, 16), hex.slice(16, 20), hex.slice(20)].join('-');
+}
+
+export const textItems = (labels: string[]): TextItem[] => labels.map((label) => ({ id: createId(), label }));
 
 export function createStudy(): StudyDraft {
   return {
@@ -100,46 +138,47 @@ export function createStudy(): StudyDraft {
       right_button_icon: null,
       allow_swipe_back: false,
       allow_pausing: false,
+      comment_button: false,
+      save_button: false,
+      share_button: false,
+      pause_on_share: false,
+      share_options: textItems(DEFAULT_SHARE_OPTIONS),
+      audio_record: false,
+      camera_record: false,
     },
     blocks: [],
   };
 }
 
-export function createId(): string {
-  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
-  // getRandomValues also works in HTTP LAN previews and the Jest DOM environment.
-  const bytes = crypto.getRandomValues(new Uint8Array(16));
-  bytes[6] = (bytes[6] & 15) | 64;
-  bytes[8] = (bytes[8] & 63) | 128;
-  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
-  return [hex.slice(0, 8), hex.slice(8, 12), hex.slice(12, 16), hex.slice(16, 20), hex.slice(20)].join('-');
-}
+/** Prefix of generated labels; matches the design document's data example (instruction1, video1, survey1). */
+const labelPrefix: Record<BlockType, string> = { instructions: 'instruction', video: 'video', survey: 'survey' };
 
 /** instruction1, video2, survey1 … — unique among the existing labels. */
 export function defaultLabel(type: BlockType, blocks: DraftBlock[]): string {
   const used = new Set(blocks.map((block) => block.label));
   let n = blocks.filter((block) => block.type === type).length + 1;
-  while (used.has(type + n)) n += 1;
-  return type + n;
+  while (used.has(labelPrefix[type] + n)) n += 1;
+  return labelPrefix[type] + n;
 }
 
-/** True while a video block still carries its generated label, so a chosen file name may replace it. */
+/** True while a block still carries its generated label, so a chosen file name may replace it. */
 export function isGeneratedLabel(label: string, type: BlockType): boolean {
-  return !label.trim() || new RegExp('^' + type + '\\d+$').test(label);
+  return !label.trim() || new RegExp('^' + labelPrefix[type] + '\\d+$').test(label);
+}
+
+export function createComment(): DraftComment {
+  return { id: createId(), author: '', text: '', likes: '' };
 }
 
 export function createBlock(type: BlockType, existing: DraftBlock[] = []): DraftBlock {
   const base = { id: createId(), label: defaultLabel(type, existing), random_group: '' };
-  if (type === 'instruction') return { ...base, type, body: '' };
-  if (type === 'video') return { ...base, type, media: null };
+  if (type === 'instructions') return { ...base, type, body: '' };
+  if (type === 'video') return { ...base, type, media: null, title: '', description: '', comments: [] };
   return {
     ...base,
     type,
     prompt: '',
-    options: ['Strongly disagree', 'Disagree', 'Neutral', 'Agree', 'Strongly agree'].map((label) => ({
-      id: createId(),
-      label,
-    })),
+    options: textItems(['Strongly disagree', 'Disagree', 'Neutral', 'Agree', 'Strongly agree']),
   };
 }
 
@@ -152,18 +191,27 @@ export function moveBlock(blocks: DraftBlock[], id: string, direction: -1 | 1): 
   return next;
 }
 
+const LIKES_PATTERN = /^\d{1,9}$/;
+
 export function validateStudy(draft: StudyDraft): ValidationErrors {
   const errors: ValidationErrors = {};
+  const s = draft.settings;
   if (!draft.name.trim()) errors.name = 'Give your study a name.';
   if (!draft.blocks.length) errors.blocks = 'Add at least one block to your study.';
   for (const side of ['left', 'right'] as const) {
-    const icon = draft.settings[buttonKeys[side].icon];
+    const icon = s[buttonKeys[side].icon];
     if (icon?.kind === 'local' && icon.status !== 'ready') {
       errors[side + '.icon'] =
         icon.status === 'error' ? 'Replace or remove this unreadable image.' : 'Wait for the image preview to load.';
     }
   }
-  if (draft.settings.randomization === 'groups') {
+  if (s.share_button) {
+    if (!s.share_options.length) errors.share_options = 'Add at least one share option.';
+    for (const option of s.share_options) {
+      if (!option.label.trim()) errors[option.id + '.label'] = 'Option text cannot be empty.';
+    }
+  }
+  if (s.randomization === 'groups') {
     const sizes = new Map<string, number>();
     for (const block of draft.blocks) {
       const group = block.random_group.trim();
@@ -175,7 +223,7 @@ export function validateStudy(draft: StudyDraft): ValidationErrors {
   }
   for (const block of draft.blocks) {
     if (!block.label.trim()) errors[block.id + '.label'] = 'Give this block a label for the data export.';
-    if (block.type === 'instruction' && !block.body.trim()) {
+    if (block.type === 'instructions' && !block.body.trim()) {
       errors[block.id + '.body'] = 'Add the instructions participants will see.';
     }
     if (block.type === 'video') {
@@ -185,6 +233,13 @@ export function validateStudy(draft: StudyDraft): ValidationErrors {
           block.media.status === 'error'
             ? 'This video cannot be played. Choose another file.'
             : 'Wait for the video preview to load.';
+      for (const comment of block.comments) {
+        if (!comment.author.trim()) errors[comment.id + '.author'] = 'Enter a name.';
+        if (!comment.text.trim()) errors[comment.id + '.text'] = 'Enter the comment text.';
+        if (comment.likes.trim() && !LIKES_PATTERN.test(comment.likes.trim())) {
+          errors[comment.id + '.likes'] = 'Use a whole number, or leave blank to hide likes.';
+        }
+      }
     }
     if (block.type === 'survey') {
       if (!block.prompt.trim()) errors[block.id + '.prompt'] = 'Enter a survey question.';
@@ -235,16 +290,21 @@ export function plannedUploads(draft: StudyDraft, studyId: string): PendingUploa
   return uploads;
 }
 
-function groupFor(draft: StudyDraft, block: DraftBlock): string | null {
-  if (draft.settings.randomization === 'all') return ALL_BLOCKS_GROUP;
-  return block.random_group.trim() || null;
+const blankToNull = (value: string) => value.trim() || null;
+
+function commentsToJson(comments: DraftComment[]): CommentJson[] | null {
+  if (!comments.length) return null;
+  return comments.map((comment) => {
+    const json: CommentJson = { author: comment.author.trim(), text: comment.text.trim() };
+    if (comment.likes.trim()) json.likes = Number(comment.likes.trim());
+    return json;
+  });
 }
 
 /**
  * Maps the editor state onto public.studies / public.blocks rows.
  * `uploadedPaths` maps LocalMedia.id → Storage object path and must cover every local file
- * (stored files keep their existing path);
- * blob URLs and File objects never cross this boundary.
+ * (stored files keep their existing path); blob URLs and File objects never cross this boundary.
  */
 export function toStudyRows(
   draft: StudyDraft,
@@ -259,10 +319,12 @@ export function toStudyRows(
     return path;
   };
   const s = draft.settings;
+  // Kept even while the share button is off, so switching it back on restores the list.
+  const shareOptions = s.share_options.map((option) => option.label.trim()).filter(Boolean);
   const study: StudyInsert = {
     id: studyId,
     name: draft.name.trim(),
-    randomized: s.randomization !== 'off',
+    randomized: s.randomization === 'all',
     show_video_bar: s.show_video_bar,
     show_response_buttons: s.show_response_buttons,
     left_button_text: s.left_button_text.trim(),
@@ -271,6 +333,13 @@ export function toStudyRows(
     right_button_icon_path: s.right_button_icon ? pathOf(s.right_button_icon) : null,
     allow_swipe_back: s.allow_swipe_back,
     allow_pausing: s.allow_pausing,
+    comment_button: s.comment_button,
+    save_button: s.save_button,
+    share_button: s.share_button,
+    pause_on_share: s.pause_on_share,
+    share_options: shareOptions.length ? shareOptions : null,
+    audio_record: s.audio_record,
+    camera_record: s.camera_record,
   };
   const blocks = draft.blocks.map((block, index): BlockInsert => {
     const row: BlockInsert = {
@@ -279,17 +348,24 @@ export function toStudyRows(
       position: index + 1,
       type: block.type,
       label: block.label.trim(),
-      random_group: groupFor(draft, block),
+      // The tablet applies groups only when the study is not fully randomized.
+      random_group: s.randomization === 'groups' ? blankToNull(block.random_group) : null,
       body: null,
       video_path: null,
       file_name: null,
+      title: null,
+      description: null,
+      comments: null,
       prompt: null,
       options: null,
     };
-    if (block.type === 'instruction') row.body = block.body.trim();
+    if (block.type === 'instructions') row.body = block.body.trim();
     if (block.type === 'video') {
       row.video_path = pathOf(block.media!);
       row.file_name = mediaName(block.media!);
+      row.title = blankToNull(block.title);
+      row.description = blankToNull(block.description);
+      row.comments = commentsToJson(block.comments);
     }
     if (block.type === 'survey') {
       row.prompt = block.prompt.trim();
@@ -331,11 +407,11 @@ export function fromStudyRows(
         }
       : null;
   const ordered = [...blocks].sort((a, b) => a.position - b.position);
-  const randomization: RandomizationMode = !study.randomized
-    ? 'off'
-    : ordered.length > 0 && ordered.every((block) => block.random_group === ALL_BLOCKS_GROUP)
-      ? 'all'
-      : 'groups';
+  const randomization: RandomizationMode = study.randomized
+    ? 'all'
+    : ordered.some((block) => block.random_group)
+      ? 'groups'
+      : 'off';
   return {
     name: study.name,
     settings: {
@@ -348,21 +424,36 @@ export function fromStudyRows(
       right_button_icon: stored(study.right_button_icon_path),
       allow_swipe_back: study.allow_swipe_back,
       allow_pausing: study.allow_pausing,
+      comment_button: study.comment_button ?? false,
+      save_button: study.save_button ?? false,
+      share_button: study.share_button ?? false,
+      pause_on_share: study.pause_on_share ?? false,
+      share_options: textItems(study.share_options?.length ? study.share_options : DEFAULT_SHARE_OPTIONS),
+      audio_record: study.audio_record ?? false,
+      camera_record: study.camera_record ?? false,
     },
     blocks: ordered.map((row): DraftBlock => {
-      const base = {
-        id: row.id,
-        label: row.label,
-        random_group: randomization === 'all' ? '' : (row.random_group ?? ''),
-      };
-      if (row.type === 'instruction') return { ...base, type: 'instruction', body: row.body ?? '' };
-      if (row.type === 'video') return { ...base, type: 'video', media: stored(row.video_path, row.file_name) };
-      return {
-        ...base,
-        type: 'survey',
-        prompt: row.prompt ?? '',
-        options: (row.options ?? []).map((label) => ({ id: createId(), label })),
-      };
+      const base = { id: row.id, label: row.label, random_group: row.random_group ?? '' };
+      if (row.type === 'video') {
+        return {
+          ...base,
+          type: 'video',
+          media: stored(row.video_path, row.file_name),
+          title: row.title ?? '',
+          description: row.description ?? '',
+          comments: (row.comments ?? []).map((comment) => ({
+            id: createId(),
+            author: comment.author ?? '',
+            text: comment.text ?? '',
+            likes: typeof comment.likes === 'number' ? String(comment.likes) : '',
+          })),
+        };
+      }
+      if (row.type === 'survey') {
+        return { ...base, type: 'survey', prompt: row.prompt ?? '', options: textItems(row.options ?? []) };
+      }
+      // 'instructions' (also covers the legacy 'instruction' value written before the migration).
+      return { ...base, type: 'instructions', body: row.body ?? '' };
     }),
   };
 }

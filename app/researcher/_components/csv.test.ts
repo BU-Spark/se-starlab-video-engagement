@@ -1,5 +1,5 @@
 import { buildRunsCsv, csvCell, csvFileName, CSV_COLUMNS } from './csv';
-import type { BlockViewRow, RunRow } from './database.types';
+import type { BlockViewRow, RunRow } from '@/app/utils/supabase/database.types';
 
 const run = (id: string, participant: string): RunRow => ({
   id,
@@ -22,6 +22,11 @@ const view = (id: number, runId: string, order: number, extra: Partial<BlockView
   video_start_at: null,
   video_end_at: null,
   swiped_back: false,
+  share_time_ms: null,
+  share_choice: null,
+  comment_time_ms: null,
+  save_time_ms: null,
+  saved: false,
   ...extra,
 });
 
@@ -36,12 +41,20 @@ test('escapes commas, quotes and newlines; booleans become 1/0; null is empty', 
 
 test('one row per block view, ordered by view_order, with study and participant on every row', () => {
   const blocks = [
-    { id: 'b1', label: 'instruction1', type: 'instruction' as const },
+    { id: 'b1', label: 'instruction1', type: 'instructions' as const },
     { id: 'b2', label: 'clip.mp4', type: 'video' as const },
   ];
   const runs = [run('r1', 'P001'), run('r2', 'P002')];
   const views = [
-    view(2, 'r1', 2, { button_press: 'Left', button_time_ms: 420, swiped_back: true }),
+    view(2, 'r1', 2, {
+      button_press: 'Left',
+      button_time_ms: 420,
+      swiped_back: true,
+      share_time_ms: 900,
+      share_choice: 'Copy link',
+      save_time_ms: 1500,
+      saved: true,
+    }),
     view(1, 'r1', 1),
     view(3, 'r2', 1),
   ];
@@ -49,9 +62,9 @@ test('one row per block view, ordered by view_order, with study and participant 
   expect(lines[0]).toBe(CSV_COLUMNS.join(','));
   expect(lines).toHaveLength(4);
   expect(lines[1].startsWith('"My, study",s1,P001,r1,')).toBe(true);
-  expect(lines[1]).toContain(',1,instruction1,instruction,stim1,');
+  expect(lines[1]).toContain(',1,instruction1,instructions,stim1,');
   expect(lines[2]).toContain(',2,clip.mp4,video,stim2,');
-  expect(lines[2].endsWith(',2000,Left,420,,,1')).toBe(true);
+  expect(lines[2].endsWith(',2000,Left,420,,,1,900,Copy link,,1500,1')).toBe(true);
   expect(lines[3]).toContain('P002');
 });
 

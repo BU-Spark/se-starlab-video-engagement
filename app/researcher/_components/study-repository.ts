@@ -1,19 +1,9 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { BlockRow, BlockViewRow, RunRow, StudyRow } from './database.types';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { BlockRow, BlockViewRow, RunRow, StudyRow } from '@/app/utils/supabase/database.types';
+import { getSupabase, STUDY_MEDIA_BUCKET } from '@/app/utils/supabase/client';
 import { createId, plannedUploads, referencedPaths, toStudyRows, type StudyDraft } from './study-model';
 
-export const STUDY_MEDIA_BUCKET = process.env.NEXT_PUBLIC_SUPABASE_STUDY_BUCKET || 'study-media';
-
-let client: SupabaseClient | null | undefined;
-
-/** Browser client using the publishable key; returns null when the env vars are absent (e.g. CI preview). */
-export function getSupabase(): SupabaseClient | null {
-  if (client !== undefined) return client;
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  client = url && key ? createClient(url, key) : null;
-  return client;
-}
+export { getSupabase, STUDY_MEDIA_BUCKET };
 
 export type SaveProgress =
   | { stage: 'checking' }

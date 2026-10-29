@@ -12,7 +12,7 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "researcher:lint": "eslint app/researcher tests/researcher playwright.researcher.config.ts scripts/researcher-build.mjs scripts/researcher-preview.mjs scripts/researcher-workspace.mjs --max-warnings=0 && prettier --check .github/workflows/researcher-ci.yml",
-    "researcher:unit": "jest app/researcher",
+    "researcher:unit": "jest app/researcher app/utils/studies",
     "researcher:test": "playwright test --config=playwright.researcher.config.ts",
     "researcher:preview": "node scripts/researcher-preview.mjs",
     "researcher:build": "node scripts/researcher-build.mjs",

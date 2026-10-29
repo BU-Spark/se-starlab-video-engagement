@@ -8,6 +8,9 @@ import ResearcherShell from './ResearcherShell';
 import {
   buttonKeys,
   createBlock,
+  createComment,
+  DEFAULT_SHARE_OPTIONS,
+  textItems,
   createId,
   createStudy,
   isGeneratedLabel,
@@ -53,7 +56,7 @@ function progressText(progress: SaveProgress): string {
 }
 
 const blockInfo: Record<BlockType, { title: string; icon: IconName; description: string }> = {
-  instruction: { title: 'Instructions', icon: 'text', description: 'Give participants context and guidance.' },
+  instructions: { title: 'Instructions', icon: 'text', description: 'Give participants context and guidance.' },
   video: { title: 'Video', icon: 'video', description: 'Add a short-form video stimulus.' },
   survey: { title: 'Survey', icon: 'survey', description: 'Collect a response on a Likert scale.' },
 };
@@ -63,16 +66,23 @@ function Toggle({
   description,
   checked,
   onChange,
+  disabled = false,
+  badge,
 }: {
   label: string;
   description: string;
   checked: boolean;
   onChange: () => void;
+  disabled?: boolean;
+  badge?: string;
 }) {
   return (
     <div className={styles.toggleRow}>
       <div>
-        <span className={styles.controlLabel}>{label}</span>
+        <span className={styles.controlLabel}>
+          {label}
+          {badge && <span className={styles.soon}>{badge}</span>}
+        </span>
         <p>{description}</p>
       </div>
       <button
@@ -81,6 +91,7 @@ function Toggle({
         aria-label={label}
         aria-checked={checked}
         onClick={onChange}
+        disabled={disabled}
         className={styles.switch}
       >
         <span />
@@ -251,7 +262,7 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
   }
 
   function touchField(id: string) {
-    const suffix = /^([0-9a-f-]{36})-(body|prompt|label)$/i.exec(id);
+    const suffix = /^([0-9a-f-]{36})-(body|prompt|label|author|text|likes)$/i.exec(id);
     const key =
       id === 'study-name'
         ? 'name'
@@ -663,6 +674,97 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
                       );
                     })}
                   </fieldset>
+                  <h3 className={styles.subHeading}>Side buttons</h3>
+                  <Toggle
+                    label="Comment button"
+                    description="Opens a panel with each video's comments."
+                    checked={draft.settings.comment_button}
+                    onChange={() => updateSettings({ comment_button: !draft.settings.comment_button })}
+                  />
+                  <Toggle
+                    label="Save button"
+                    description="Lets participants save and unsave a video."
+                    checked={draft.settings.save_button}
+                    onChange={() => updateSettings({ save_button: !draft.settings.save_button })}
+                  />
+                  <Toggle
+                    label="Share button"
+                    description="Opens a share panel; the option picked is recorded."
+                    checked={draft.settings.share_button}
+                    onChange={() => updateSettings({ share_button: !draft.settings.share_button })}
+                  />
+                  {draft.settings.share_button && (
+                    <div className={styles.shareOptions} role="group" aria-labelledby="share-options-label">
+                      <div className={styles.optionsHeading}>
+                        <span className={styles.fieldLabel} id="share-options-label">
+                          Share options
+                        </span>
+                        <button
+                          type="button"
+                          className={styles.textButton}
+                          onClick={() => updateSettings({ share_options: textItems(DEFAULT_SHARE_OPTIONS) })}
+                        >
+                          Reset to defaults
+                        </button>
+                      </div>
+                      {draft.settings.share_options.map((option, optionIndex) => (
+                        <div key={option.id}>
+                          <div className={styles.optionRow}>
+                            <label className={styles.srOnly} htmlFor={option.id}>
+                              Share option {optionIndex + 1}
+                            </label>
+                            <input
+                              id={option.id}
+                              value={option.label}
+                              placeholder="e.g. Copy link"
+                              onChange={(e) =>
+                                updateSettings({
+                                  share_options: draft.settings.share_options.map((o) =>
+                                    o.id === option.id ? { ...o, label: e.target.value } : o
+                                  ),
+                                })
+                              }
+                              aria-invalid={!!errors[option.id + '.label']}
+                            />
+                            <button
+                              className={styles.iconButton}
+                              type="button"
+                              disabled={draft.settings.share_options.length <= 1}
+                              aria-label={'Remove share option ' + (optionIndex + 1)}
+                              onClick={() =>
+                                updateSettings({
+                                  share_options: draft.settings.share_options.filter((o) => o.id !== option.id),
+                                })
+                              }
+                            >
+                              <Icon name="close" size={16} />
+                            </button>
+                          </div>
+                          <FieldError id={option.id + '-error'} message={errors[option.id + '.label']} />
+                        </div>
+                      ))}
+                      <FieldError id="share-options-error" message={errors.share_options} />
+                      <button
+                        type="button"
+                        className={styles.textButton}
+                        onClick={() =>
+                          updateSettings({
+                            share_options: [...draft.settings.share_options, { id: createId(), label: '' }],
+                          })
+                        }
+                      >
+                        <Icon name="plus" size={15} />
+                        Add share option
+                      </button>
+                    </div>
+                  )}
+                  <Toggle
+                    label="Pause while panels are open"
+                    description="Pause the video while the share or comments panel is open."
+                    checked={draft.settings.pause_on_share}
+                    disabled={!draft.settings.share_button && !draft.settings.comment_button}
+                    onChange={() => updateSettings({ pause_on_share: !draft.settings.pause_on_share })}
+                  />
                 </div>
                 <div className={styles.settingsColumn}>
                   <h3>Controls</h3>
@@ -677,6 +779,21 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
                     description="Let participants pause and resume a video."
                     checked={draft.settings.allow_pausing}
                     onChange={() => updateSettings({ allow_pausing: !draft.settings.allow_pausing })}
+                  />
+                  <h3 className={styles.subHeading}>Recording</h3>
+                  <Toggle
+                    label="Audio recording"
+                    badge="Tablet support pending"
+                    description="Record from the tablet microphone during the session."
+                    checked={draft.settings.audio_record}
+                    onChange={() => updateSettings({ audio_record: !draft.settings.audio_record })}
+                  />
+                  <Toggle
+                    label="Camera recording"
+                    badge="Tablet support pending"
+                    description="Record from the front camera during the session."
+                    checked={draft.settings.camera_record}
+                    onChange={() => updateSettings({ camera_record: !draft.settings.camera_record })}
                   />
                   <div className={styles.controlNote}>
                     <Icon name="info" size={17} />
@@ -826,7 +943,7 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
                           </div>
                         )}
                       </div>
-                      {block.type === 'instruction' && (
+                      {block.type === 'instructions' && (
                         <div className={styles.field}>
                           <label htmlFor={block.id + '-body'}>
                             Instruction text <span className={styles.required}>*</span>
@@ -838,7 +955,7 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
                             placeholder="Tell participants what to expect and how to proceed…"
                             onChange={(e) =>
                               updateBlock(block.id, (b) =>
-                                b.type === 'instruction' ? { ...b, body: e.target.value } : b
+                                b.type === 'instructions' ? { ...b, body: e.target.value } : b
                               )
                             }
                             aria-invalid={!!inputError('body')}
@@ -944,6 +1061,142 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
                                 : undefined)
                             }
                           />
+                          <div className={styles.captionFields}>
+                            <div className={styles.field}>
+                              <label htmlFor={block.id + '-title'}>Caption title</label>
+                              <input
+                                id={block.id + '-title'}
+                                value={block.title}
+                                placeholder="Optional · shown bottom-left over the video"
+                                autoComplete="off"
+                                onChange={(e) =>
+                                  updateBlock(block.id, (b) =>
+                                    b.type === 'video' ? { ...b, title: e.target.value } : b
+                                  )
+                                }
+                              />
+                            </div>
+                            <div className={styles.field}>
+                              <label htmlFor={block.id + '-description'}>Caption text</label>
+                              <textarea
+                                id={block.id + '-description'}
+                                rows={2}
+                                value={block.description}
+                                placeholder="Optional · line breaks are kept"
+                                onChange={(e) =>
+                                  updateBlock(block.id, (b) =>
+                                    b.type === 'video' ? { ...b, description: e.target.value } : b
+                                  )
+                                }
+                              />
+                            </div>
+                          </div>
+                          <div className={styles.optionsHeading}>
+                            <span className={styles.fieldLabel} id={block.id + '-comments-label'}>
+                              Comments
+                            </span>
+                            <span className={styles.miniHint}>
+                              {draft.settings.comment_button
+                                ? block.comments.length + ' shown in the comments panel'
+                                : 'Turn on the comment button to show these'}
+                            </span>
+                          </div>
+                          <div
+                            className={styles.commentList}
+                            role="group"
+                            aria-labelledby={block.id + '-comments-label'}
+                          >
+                            {block.comments.map((comment, commentIndex) => {
+                              const commentError = (key: string) => errors[comment.id + '.' + key];
+                              const setComment = (change: Partial<typeof comment>) =>
+                                updateBlock(block.id, (b) =>
+                                  b.type === 'video'
+                                    ? {
+                                        ...b,
+                                        comments: b.comments.map((c) =>
+                                          c.id === comment.id ? { ...c, ...change } : c
+                                        ),
+                                      }
+                                    : b
+                                );
+                              const name = 'comment ' + (commentIndex + 1) + ' for block ' + (index + 1);
+                              return (
+                                <div className={styles.commentRow} key={comment.id}>
+                                  <div className={styles.commentFields}>
+                                    <div className={styles.field}>
+                                      <label className={styles.srOnly} htmlFor={comment.id + '-author'}>
+                                        Author of {name}
+                                      </label>
+                                      <input
+                                        id={comment.id + '-author'}
+                                        value={comment.author}
+                                        placeholder="Name"
+                                        autoComplete="off"
+                                        onChange={(e) => setComment({ author: e.target.value })}
+                                        aria-invalid={!!commentError('author')}
+                                      />
+                                      <FieldError id={comment.id + '-author-error'} message={commentError('author')} />
+                                    </div>
+                                    <div className={styles.field}>
+                                      <label className={styles.srOnly} htmlFor={comment.id + '-text'}>
+                                        Text of {name}
+                                      </label>
+                                      <input
+                                        id={comment.id + '-text'}
+                                        value={comment.text}
+                                        placeholder="Comment"
+                                        autoComplete="off"
+                                        onChange={(e) => setComment({ text: e.target.value })}
+                                        aria-invalid={!!commentError('text')}
+                                      />
+                                      <FieldError id={comment.id + '-text-error'} message={commentError('text')} />
+                                    </div>
+                                    <div className={styles.field}>
+                                      <label className={styles.srOnly} htmlFor={comment.id + '-likes'}>
+                                        Likes of {name}
+                                      </label>
+                                      <input
+                                        id={comment.id + '-likes'}
+                                        value={comment.likes}
+                                        placeholder="Likes"
+                                        inputMode="numeric"
+                                        autoComplete="off"
+                                        onChange={(e) => setComment({ likes: e.target.value })}
+                                        aria-invalid={!!commentError('likes')}
+                                      />
+                                      <FieldError id={comment.id + '-likes-error'} message={commentError('likes')} />
+                                    </div>
+                                  </div>
+                                  <button
+                                    className={styles.iconButton}
+                                    type="button"
+                                    aria-label={'Remove ' + name}
+                                    onClick={() =>
+                                      updateBlock(block.id, (b) =>
+                                        b.type === 'video'
+                                          ? { ...b, comments: b.comments.filter((c) => c.id !== comment.id) }
+                                          : b
+                                      )
+                                    }
+                                  >
+                                    <Icon name="close" size={16} />
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <button
+                            type="button"
+                            className={styles.textButton}
+                            onClick={() =>
+                              updateBlock(block.id, (b) =>
+                                b.type === 'video' ? { ...b, comments: [...b.comments, createComment()] } : b
+                              )
+                            }
+                          >
+                            <Icon name="plus" size={15} />
+                            Add comment
+                          </button>
                         </>
                       )}
 

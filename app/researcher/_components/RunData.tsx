@@ -5,7 +5,7 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import Icon from './Icon';
 import ResearcherShell from './ResearcherShell';
 import { buildRunsCsv, csvFileName, downloadCsv } from './csv';
-import type { BlockViewRow, RunRow } from './database.types';
+import type { BlockViewRow, RunRow } from '@/app/utils/supabase/database.types';
 import { formatDateTime, formatDuration, formatMs } from './format';
 import { getStudy, getSupabase, listBlockViews, listRuns, type LoadedStudy } from './study-repository';
 import styles from './StudyBuilder.module.css';
@@ -293,6 +293,9 @@ export default function RunData({ studyId }: { studyId: string }) {
                                         <th scope="col">Button</th>
                                         <th scope="col">Button time</th>
                                         <th scope="col">Swiped back</th>
+                                        <th scope="col">Share</th>
+                                        <th scope="col">Comments opened</th>
+                                        <th scope="col">Saved</th>
                                       </tr>
                                     </thead>
                                     <tbody>
@@ -305,6 +308,18 @@ export default function RunData({ studyId }: { studyId: string }) {
                                           <td>{view.button_press ?? '—'}</td>
                                           <td>{formatMs(view.button_time_ms)}</td>
                                           <td>{view.swiped_back ? 'Yes' : 'No'}</td>
+                                          <td>
+                                            {view.share_time_ms === null || view.share_time_ms === undefined
+                                              ? '—'
+                                              : (view.share_choice ?? '—') + ' · ' + formatMs(view.share_time_ms)}
+                                          </td>
+                                          <td>{formatMs(view.comment_time_ms)}</td>
+                                          <td>
+                                            {view.saved ? 'Yes' : 'No'}
+                                            {view.save_time_ms !== null && view.save_time_ms !== undefined
+                                              ? ' · first tap ' + formatMs(view.save_time_ms)
+                                              : ''}
+                                          </td>
                                         </tr>
                                       ))}
                                     </tbody>

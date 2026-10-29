@@ -6,7 +6,7 @@ Owner: Engineer 1 / Louis. Stage: create, list, edit, delete studies and inspect
 
 Researchers can configure a study, add Instructions, Video, and Survey blocks, edit their content, reorder them, preview local files, and save the study to Supabase. They can then find it in the study list, edit it until participants run it, delete it while it has no data, and inspect or download the runs the tablet syncs. Field names follow the `studies` / `blocks` schema; see [Supabase Schema Alignment](supabase-alignment.md).
 
-Saving requires `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in `.env.local`. Without them (including CI and the isolated preview) the builder is a local preview with Save disabled, and the list, edit and data pages explain that Supabase is not configured. Duplicating studies, zip export, audio recording, and camera access are not available yet.
+Saving requires `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in `.env.local`. Without them (including CI and the isolated preview) the builder is a local preview with Save disabled, and the list, edit and data pages explain that Supabase is not configured. Duplicating studies and zip export are not available yet. Audio and camera recording can be switched on per study, but the tablet does not record yet.
 
 ## 2. Pages and Features
 
@@ -19,18 +19,20 @@ Saving requires `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE
 
 Data rules:
 
-- A study with at least one run is **locked**: the editor opens read-only and Delete is disabled, because `block_views` refer to its blocks. Save and delete also re-check the run count immediately before writing. For a hard guarantee, add an RLS or trigger rule in Supabase (see supabase-alignment.md).
+- A study with at least one run is **locked**: the editor opens read-only and Delete is disabled, because `block_views` refer to its blocks. Save and delete also re-check the run count immediately before writing. The `blocks_locked_after_runs` trigger in the second migration enforces the same rule in the database.
 - Saving an edit is refused if `studies.updated_at` changed since the page loaded (someone else saved); reload to continue.
 - Replaced or removed videos/icons are deleted from Storage after a successful save; deleting a study also deletes its files.
-- CSV is long format: one row per block view with study, participant and run on every row. Columns: `study_name, study_id, participant_id, run_id, run_started_at, run_completed_at, view_order, block_label, block_type, stimulus, view_started_at, watch_time_ms, button_press, button_time_ms, video_start_at, video_end_at, swiped_back` (`swiped_back` is 1/0). Files are UTF-8 with BOM so Excel opens them correctly.
+- CSV is long format: one row per block view with study, participant and run on every row. Columns: `study_name, study_id, participant_id, run_id, run_started_at, run_completed_at, view_order, block_label, block_type, stimulus, view_started_at, watch_time_ms, button_press, button_time_ms, video_start_at, video_end_at, swiped_back, share_time_ms, share_choice, comment_time_ms, save_time_ms, saved` (`swiped_back` and `saved` are 1/0). Files are UTF-8 with BOM so Excel opens them correctly.
 
 The builder layout follows the design: study settings above the block list, English interface text, white and gray surfaces, and BU-red accents.
 
-- Settings: study name; randomization Off / All blocks / By group (`studies.randomized` + `blocks.random_group`); video progress bar; response buttons; swipe back; and pause.
+- Settings: study name; randomization Off / All blocks / By group (`studies.randomized` + `blocks.random_group`, following the tablet's ordering rule); video progress bar; response buttons; swipe back; and pause.
+- Side buttons (tablet right-hand rail): comment, save and share buttons; editable share options (defaults Copy link, Messages, Email, Repost, More); pause while the share/comments panel is open.
+- Recording: audio and camera switches, stored for the tablet (marked "Tablet support pending").
 - Response buttons: thumbs-down on the left and thumbs-up on the right by default. Researchers can customize labels or select local icons. Disabling the buttons preserves their configuration.
 - Every block has a required label (`blocks.label`, the stimulus name in exported data), defaulting to `instruction1`, `video1`, `survey1`; a video's label becomes its file name.
 - Instructions: plain-text input.
-- Video: select, replace, play, and remove local videos, with validation messages for invalid files.
+- Video: select, replace, play, and remove local videos, with validation messages for invalid files; optional caption title and text; researcher-written comments (name, text, optional like count) shown in the tablet's comments panel.
 - Survey: edit the question and options, keeping at least two options.
 - Reordering and deletion: stable block IDs; moving blocks preserves content; deletion requires confirmation.
 - Required-field validation for names, instructions, questions, and options appears after leaving the corresponding field, without a simulated save.
@@ -40,7 +42,7 @@ The builder layout follows the design: study settings above the block list, Engl
 
 Engineer 1 owns the interface and the Supabase save path. Engineer 3 owns the Supabase project: schema, row-level security, Storage bucket, and authentication. Engineer 2 owns the tablet runner and must implement the randomization rule in [supabase-alignment.md](supabase-alignment.md#2-randomization-rule-shared-with-the-tablet-app).
 
-`toStudyRows` / `fromStudyRows` in `study-model.ts` are the only mappings between editor state and database rows; `csv.ts` builds exports. Both are covered by unit tests (`npm run researcher:unit`). All Supabase calls live in `study-repository.ts`. The earlier [Engineer 3 API Handoff](engineer3-handoff.md) is kept for reference only.
+`toStudyRows` / `fromStudyRows` in `study-model.ts` are the only mappings between editor state and database rows; `app/utils/studies/supabaseMapping.ts` maps rows to the tablet's `Study` and its `RunResult` back to rows; `csv.ts` builds exports. Both are covered by unit tests (`npm run researcher:unit`). All Supabase calls live in `study-repository.ts`. The earlier [Engineer 3 API Handoff](engineer3-handoff.md) is kept for reference only.
 
 ## 4. Current CI
 

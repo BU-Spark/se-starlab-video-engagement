@@ -1,4 +1,4 @@
-import type { BlockRow, BlockViewRow, RunRow, StudyRow } from './database.types';
+import type { BlockRow, BlockViewRow, RunRow, StudyRow } from '@/app/utils/supabase/database.types';
 
 /** Long-format export: one row per block view, every row self-describing (study, participant, run). */
 export const CSV_COLUMNS = [
@@ -19,6 +19,11 @@ export const CSV_COLUMNS = [
   'video_start_at',
   'video_end_at',
   'swiped_back',
+  'share_time_ms',
+  'share_choice',
+  'comment_time_ms',
+  'save_time_ms',
+  'saved',
 ] as const;
 
 type Cell = string | number | boolean | null | undefined;
@@ -61,6 +66,11 @@ export function buildRunsCsv(
         video_start_at: view.video_start_at,
         video_end_at: view.video_end_at,
         swiped_back: view.swiped_back,
+        share_time_ms: view.share_time_ms,
+        share_choice: view.share_choice,
+        comment_time_ms: view.comment_time_ms,
+        save_time_ms: view.save_time_ms,
+        saved: view.saved,
       };
       lines.push(CSV_COLUMNS.map((column) => csvCell(row[column])).join(','));
     }

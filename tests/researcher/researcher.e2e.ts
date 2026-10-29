@@ -30,6 +30,12 @@ test('1. The real page opens and its settings can be edited', async ({ page }) =
   await page.getByRole('button', { name: 'By group', exact: true }).click();
   await expect(page.getByRole('button', { name: 'By group', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('switch', { name: 'Swipe back', exact: true }).click();
+  // Side buttons from the tablet contract: share options appear with the share button.
+  const pauseOnShare = page.getByRole('switch', { name: 'Pause while panels are open', exact: true });
+  await expect(pauseOnShare).toBeDisabled();
+  await page.getByRole('switch', { name: 'Share button', exact: true }).click();
+  await expect(page.getByRole('textbox', { name: 'Share option 1', exact: true })).toHaveValue('Copy link');
+  await expect(pauseOnShare).toBeEnabled();
   await expect(page.getByRole('switch', { name: 'Swipe back', exact: true })).toHaveAttribute('aria-checked', 'true');
 
   await page.getByLabel('Left button icon', { exact: true }).setInputFiles(fixture('button-icon.svg'));

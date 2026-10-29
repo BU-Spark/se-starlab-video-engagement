@@ -136,8 +136,8 @@ Most projects will require the use of other technologies. Below are a few guides
 The participant app is a fullscreen web app at `/tablet`, built for Android tablets running Chrome.
 The flow is: pick a study → all videos download up front → enter a Participant ID → swipe through the blocks → results upload.
 
-- **Studies** currently come from `public/mock/studies.json` (sample videos in `public/mock/videos/`).
-  See [Connecting the researcher front end](#connecting-the-researcher-front-end) to load them from a real backend instead.
+- **Studies** come from Supabase when `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` are set (the same project the researcher pages at `/researcher/studies` write to); otherwise from `public/mock/studies.json` (sample videos in `public/mock/videos/`).
+  See [Connecting the researcher front end](#connecting-the-researcher-front-end).
 - **Swipe direction:** TikTok-style. Swipe **up** for the next block and **down** to go back (when the study allows it).
   To reverse it, set `NEXT_GESTURE` in `app/components/ReelsViewport/ReelsViewport.tsx` to `'down'`.
 - **Laptop testing:** open `localhost:3000/tablet`. On a laptop the app shows as a phone-shaped column, like YouTube Shorts; on a touch tablet it fills the screen.
@@ -238,7 +238,9 @@ interface StudyRepository {
 }
 ```
 
-To switch from the mock data to a real backend:
+**The Supabase implementation is in place:** `app/utils/studies/supabaseRepository.ts`, using the row ↔ `Study` / `RunResult` conversions in `app/utils/studies/supabaseMapping.ts`. `app/utils/studies/index.ts` picks it automatically when the two Supabase env vars are set, and falls back to the mock otherwise. Runs are uploaded through the `submit_run` database function, which ignores a retried upload of the same session. Field-by-field mapping, migrations and access rules: [`docs/supabase-alignment.md`](docs/supabase-alignment.md).
+
+To use a different backend instead:
 
 1. Write a new implementation next to `mockRepository.ts`. For a plain REST API it is about this much code:
 
@@ -267,9 +269,9 @@ To switch from the mock data to a real backend:
    };
    ```
 
-   Supabase, Firebase or anything else works the same way: just fill in those three functions.
+   Firebase or anything else works the same way: just fill in those three functions.
 
-2. Change the one line in `app/utils/studies/index.ts` to `export const studyRepository = httpRepository;`.
+2. Change `app/utils/studies/index.ts` to `export const studyRepository = httpRepository;`.
 
 Things to keep in mind:
 
