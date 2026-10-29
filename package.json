@@ -12,13 +12,15 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "researcher:lint": "eslint app/researcher tests/researcher playwright.researcher.config.ts scripts/researcher-build.mjs scripts/researcher-preview.mjs scripts/researcher-workspace.mjs --max-warnings=0 && prettier --check .github/workflows/researcher-ci.yml",
+    "researcher:unit": "jest app/researcher",
     "researcher:test": "playwright test --config=playwright.researcher.config.ts",
     "researcher:preview": "node scripts/researcher-preview.mjs",
     "researcher:build": "node scripts/researcher-build.mjs",
-    "researcher:ci": "npm run researcher:lint && npm run researcher:test && npm run researcher:build",
+    "researcher:ci": "npm run researcher:lint && npm run researcher:unit && npm run researcher:test && npm run researcher:build",
     "prepare": "husky"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.118.0",
     "clsx": "^2.1.1",
     "next": "^15.5.4",
     "react": "^19.2.0",

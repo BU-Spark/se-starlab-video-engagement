@@ -1,39 +1,52 @@
-# Researcher Study Creation: Static Frontend
+# Researcher Frontend
 
-Owner: Engineer 1 / Louis. Stage: Week 1, frontend only, without backend integration.
+Owner: Engineer 1 / Louis. Stage: create, list, edit, delete studies and inspect/export synced runs, all on Supabase (`studies`, `blocks`, `runs`, `block_views`, Storage).
 
 ## 1. Goal and Scope
 
-Researchers can configure a study, add Instructions, Video, and Survey blocks, edit their content, reorder them, and preview local files.
+Researchers can configure a study, add Instructions, Video, and Survey blocks, edit their content, reorder them, preview local files, and save the study to Supabase. They can then find it in the study list, edit it until participants run it, delete it while it has no data, and inspect or download the runs the tablet syncs. Field names follow the `studies` / `blocks` schema; see [Supabase Schema Alignment](supabase-alignment.md).
 
-Cloud saving, uploads, synchronization, study execution, data export, audio recording, and camera access are not available. Save buttons are disabled, and the page explicitly states that the backend is not connected. Refreshing clears the current content. The previous simulated save service and simulated failure controls have been removed.
+Saving requires `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in `.env.local`. Without them (including CI and the isolated preview) the builder is a local preview with Save disabled, and the list, edit and data pages explain that Supabase is not configured. Duplicating studies, zip export, audio recording, and camera access are not available yet.
 
-## 2. Page and Features
+## 2. Pages and Features
 
-Route: `/researcher/studies/new`. The layout follows the design: study settings above the block list, English interface text, white and gray surfaces, and BU-red accents.
+| Route                           | Page                                                                                                     | Buttons                                                                                                    |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `/researcher/studies`           | Study list: name, block count, runs (completed), last sync, last update                                  | Create new, Refresh; per study: Edit (or View when locked), View data, Delete                              |
+| `/researcher/studies/new`       | Study builder                                                                                            | Save study; after saving: View in list, Create another study                                               |
+| `/researcher/studies/[id]/edit` | Builder loaded from Supabase                                                                             | Save changes, Discard changes, Delete study (with confirmation), View data when locked                     |
+| `/researcher/studies/[id]/data` | Runs: participant, start, Completed/Incomplete, duration, sync time; All / Completed / Incomplete filter | Refresh, Edit/View study, Download CSV (all filtered runs); per run: Inspect ▾ (block views), Download CSV |
 
-- Settings: study name; no, full, or videos-only randomization; video progress bar; response buttons; back navigation; and pause.
+Data rules:
+
+- A study with at least one run is **locked**: the editor opens read-only and Delete is disabled, because `block_views` refer to its blocks. Save and delete also re-check the run count immediately before writing. For a hard guarantee, add an RLS or trigger rule in Supabase (see supabase-alignment.md).
+- Saving an edit is refused if `studies.updated_at` changed since the page loaded (someone else saved); reload to continue.
+- Replaced or removed videos/icons are deleted from Storage after a successful save; deleting a study also deletes its files.
+- CSV is long format: one row per block view with study, participant and run on every row. Columns: `study_name, study_id, participant_id, run_id, run_started_at, run_completed_at, view_order, block_label, block_type, stimulus, view_started_at, watch_time_ms, button_press, button_time_ms, video_start_at, video_end_at, swiped_back` (`swiped_back` is 1/0). Files are UTF-8 with BOM so Excel opens them correctly.
+
+The builder layout follows the design: study settings above the block list, English interface text, white and gray surfaces, and BU-red accents.
+
+- Settings: study name; randomization Off / All blocks / By group (`studies.randomized` + `blocks.random_group`); video progress bar; response buttons; swipe back; and pause.
 - Response buttons: thumbs-down on the left and thumbs-up on the right by default. Researchers can customize labels or select local icons. Disabling the buttons preserves their configuration.
+- Every block has a required label (`blocks.label`, the stimulus name in exported data), defaulting to `instruction1`, `video1`, `survey1`; a video's label becomes its file name.
 - Instructions: plain-text input.
 - Video: select, replace, play, and remove local videos, with validation messages for invalid files.
 - Survey: edit the question and options, keeping at least two options.
 - Reordering and deletion: stable block IDs; moving blocks preserves content; deletion requires confirmation.
 - Required-field validation for names, instructions, questions, and options appears after leaving the corresponding field, without a simulated save.
-- All edits exist only in the current page. Randomization settings do not execute the tablet study algorithm.
+- Save validates every field, uploads files, inserts the study and blocks, and reports progress and errors. Randomization is only configured here; the tablet applies it.
 
 ## 3. Frontend and Backend Collaboration
 
-Engineer 1 owns the interface and local editing. Engineer 3 will implement APIs, authentication, storage, real uploads, and persistence. Engineer 2 owns the tablet runner and participates in confirming configuration semantics.
+Engineer 1 owns the interface and the Supabase save path. Engineer 3 owns the Supabase project: schema, row-level security, Storage bucket, and authentication. Engineer 2 owns the tablet runner and must implement the randomization rule in [supabase-alignment.md](supabase-alignment.md#2-randomization-rule-shared-with-the-tablet-app).
 
-The existing `buildStudyPayload` adapter will accept backend-confirmed asset IDs. Integration must use real requests and upload/save states, without restoring simulated success behavior.
-
-See the [Engineer 3 API Handoff](engineer3-handoff.md) for routes, fields, and upload sequencing. Randomization behavior, supported asset formats, and draft-saving rules still require team agreement.
+`toStudyRows` / `fromStudyRows` in `study-model.ts` are the only mappings between editor state and database rows; `csv.ts` builds exports. Both are covered by unit tests (`npm run researcher:unit`). All Supabase calls live in `study-repository.ts`. The earlier [Engineer 3 API Handoff](engineer3-handoff.md) is kept for reference only.
 
 ## 4. Current CI
 
-Checks cover implemented functionality only: ESLint → three real browser tests → production build. All three tests must pass; there is no coverage-percentage gate.
+ESLint → unit tests → four real browser tests → production build. All must pass; there is no coverage-percentage gate.
 
-- [Three Real Browser Tests](researcher-tests.md)
+- [Researcher Frontend Tests](researcher-tests.md)
 - [CI, Local Commands, and Q2 Demo Guide](researcher-ci.md)
 
 ## 5. Running and Delivering
@@ -55,4 +68,4 @@ npx playwright install chromium
 npm run researcher:ci
 ```
 
-Deliverables include frontend code, three browser tests, CI configuration, and the API handoff. Use GitHub Issues for tasks and pull requests for reviews and results; no additional document-approval process is required.
+Deliverables include frontend code, unit and browser tests, CI configuration, and the Supabase alignment notes. Use GitHub Issues for tasks and pull requests for reviews and results; no additional document-approval process is required.

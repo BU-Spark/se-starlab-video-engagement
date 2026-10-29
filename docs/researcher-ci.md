@@ -2,7 +2,7 @@
 
 ## Tools and Current Scope
 
-The pipeline uses GitHub Actions, ESLint, Playwright, and Next.js. It verifies only the Week 1 researcher static frontend. It does not require a backend, Docker, or Supabase, and does not deploy the application.
+The pipeline uses GitHub Actions, ESLint, Playwright, and Next.js. It verifies the researcher frontend (study builder, study list, saved-data and edit pages). It does not require a backend, Docker, or Supabase credentials, and does not deploy the application.
 
 Workflow: [researcher-ci.yml](../.github/workflows/researcher-ci.yml)
 
@@ -12,19 +12,20 @@ Workflow: [researcher-ci.yml](../.github/workflows/researcher-ci.yml)
 Relevant push / pull request
   → Install locked dependencies
   → 1. Run ESLint
+  → Run unit tests (Jest)
   → Install Chromium
-  → 2. Run three real browser tests
+  → 2. Run four real browser tests
   → 3. Run the Next.js production build
   → Upload reports and write the run summary
 ```
 
 - ESLint runs without `--fix`. Errors or warnings fail the check.
-- Three browser tests cover page settings, block editing, and actual local video playback. See [Three Real Tests](researcher-tests.md).
+- Unit tests cover the Supabase row mapping and CSV export. Four browser tests cover page settings, block editing, actual local video playback, and navigation to the study list. See [Researcher Frontend Tests](researcher-tests.md).
 - The build runs only after previous steps succeed. It performs real compilation, type checking, and static page generation, without skipping lint.
 - A failed check prevents subsequent verification/build steps from running. Reporting steps still run where possible to preserve diagnostic information.
 - There are no simulated-save tests or coverage-percentage gates.
 
-These are browser functional tests, not unit tests. The Q2 requirement of at least two activities is met through **Code Linting** and **Build Automation**. Browser tests provide additional verification of the implemented static frontend.
+The Q2 requirement of at least two activities is met through **Code Linting** and **Build Automation**. Unit and browser tests provide additional verification.
 
 ## How to Trigger the Pipeline
 

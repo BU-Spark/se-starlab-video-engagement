@@ -296,6 +296,42 @@
   border-left: 1px solid #d9d4d9;
   padding-left: 14px;
 }
+.saveError,
+.saveSuccess {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 12px 16px;
+  border-radius: 7px;
+  margin: -12px 0 26px;
+  font-size: 12px;
+}
+.saveError {
+  border: 1px solid #f0c6cc;
+  background: #fff4f5;
+  color: var(--red);
+}
+.saveSuccess {
+  flex-wrap: wrap;
+  border: 1px solid #cfe3d3;
+  background: #f3faf4;
+  color: #2f5d39;
+}
+.saveSuccess p {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1 1 260px;
+  min-width: 0;
+}
+.saveSuccess span {
+  color: #4f6b55;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.saveSuccess code {
+  font-size: 10px;
+}
 .editorFieldset {
   border: 0;
   min-width: 0;
@@ -774,6 +810,22 @@
 .blockBody {
   padding: 22px 25px;
 }
+.blockMeta {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 180px);
+  gap: 16px;
+  margin-bottom: 18px;
+  padding-bottom: 18px;
+  border-bottom: 1px dashed var(--line);
+}
+.blockMeta > .field:only-child {
+  grid-column: 1 / -1;
+}
+@media (max-width: 560px) {
+  .blockMeta {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 .deleteConfirmation {
   display: flex;
   align-items: center;
@@ -1220,4 +1272,106 @@
     transition: none !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* Shared shell navigation links */
+.navLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 3px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b6872;
+  text-decoration: none;
+}
+.navLink:hover {
+  color: var(--ink);
+}
+.crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+.crumb > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 260px;
+}
+.breadcrumb .crumb:last-child > span {
+  color: #58545f;
+}
+a.secondaryButton,
+a.primaryButton {
+  text-decoration: none;
+}
+
+/* Edit mode */
+.lockNotice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  padding: 12px 16px;
+  border-radius: 7px;
+  margin: -12px 0 26px;
+  border: 1px solid #ecdcb4;
+  background: #fffaf0;
+  color: #7a5a12;
+  font-size: 12px;
+}
+.lockNotice p {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1 1 260px;
+  min-width: 0;
+}
+.lockNotice span {
+  font-size: 11px;
+  color: #8a6c2a;
+}
+.dangerZone {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 24px;
+  padding: 18px 22px;
+  border: 1px solid #f0c6cc;
+  border-radius: 10px;
+  background: #fff;
+}
+.dangerZone h2 {
+  font-size: 14px;
+  font-weight: 600;
+}
+.dangerZone p {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.dangerActions {
+  display: flex;
+  gap: 10px;
+}
+.dangerButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 42px;
+  padding: 10px 16px;
+  border-radius: 7px;
+  border: 1px solid #e3a3ad;
+  background: #fff;
+  color: var(--red);
+  font-size: 12px !important;
+  font-weight: 550 !important;
+  white-space: nowrap;
+}
+.dangerButton:not(:disabled):hover {
+  background: #fff4f5;
 }
