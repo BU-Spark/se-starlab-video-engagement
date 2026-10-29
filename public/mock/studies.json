@@ -1,0 +1,92 @@
+[
+  {
+    "id": "demo-study",
+    "name": "Demo Study (all features)",
+    "randomized": false,
+    "display": {
+      "videoBar": true,
+      "leftText": "Dislike",
+      "rightText": "Like",
+      "shareOptions": ["Copy link", "Messages", "Email", "Repost", "More"]
+    },
+    "controls": {
+      "swipeUp": true,
+      "responseButtons": true,
+      "commentButton": true,
+      "saveButton": true,
+      "shareButton": true,
+      "pauseOnShare": false,
+      "pausing": true,
+      "audioRecord": false,
+      "cameraRecord": false
+    },
+    "blocks": [
+      {
+        "id": "b1",
+        "type": "instructions",
+        "label": "instruction1",
+        "text": "Welcome! You will watch a few short videos.\n\nTap the buttons to tell us whether you like each video.\n\nSwipe to continue."
+      },
+      {
+        "id": "b2",
+        "type": "video",
+        "label": "video1",
+        "videoUrl": "/mock/videos/sample1.mp4",
+        "fileName": "sample1.mp4",
+        "title": "Sample video one",
+        "description": "A short description of the first clip.\nCaptions can span more than one line.",
+        "comments": [
+          {
+            "author": "sam",
+            "text": "This is so relaxing to watch",
+            "likes": 128
+          },
+          {
+            "author": "jordan_k",
+            "text": "Where was this filmed?",
+            "likes": 14
+          },
+          {
+            "author": "alex",
+            "text": "Watched it three times already"
+          }
+        ]
+      },
+      {
+        "id": "b3",
+        "type": "survey",
+        "label": "survey1",
+        "prompt": "How much did you enjoy that video?",
+        "options": ["Strongly agree", "Agree", "Neutral", "Disagree", "Strongly disagree"]
+      },
+      {
+        "id": "b4",
+        "type": "video",
+        "label": "video2",
+        "videoUrl": "/mock/videos/sample2.mp4",
+        "fileName": "sample2.mp4",
+        "title": "Sample video two",
+        "comments": [
+          {
+            "author": "riley",
+            "text": "Love this one",
+            "likes": 3
+          }
+        ]
+      },
+      {
+        "id": "b5",
+        "type": "video",
+        "label": "video3",
+        "videoUrl": "/mock/videos/sample3.mp4",
+        "fileName": "sample3.mp4"
+      },
+      {
+        "id": "b6",
+        "type": "instructions",
+        "label": "instruction2",
+        "text": "That's the end of the study.\n\nSwipe one more time to finish."
+      }
+    ]
+  }
+]
