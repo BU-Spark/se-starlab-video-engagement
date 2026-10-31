@@ -21,10 +21,7 @@ export default function ResearcherShell({
         <div className={styles.brand}>
           <span className={styles.bu}>BU</span>
           <span className={styles.brandDivider} />
-          <div>
-            <strong>STAR LAB</strong>
-            <span>Video experiment platform</span>
-          </div>
+          <strong>STAR LAB</strong>
         </div>
         <span className={styles.researcherBadge}>
           <span />
@@ -73,7 +70,6 @@ export default function ResearcherShell({
           <span>
             STAR Lab <span className={styles.footerDot}>/</span> Boston University
           </span>
-          <span>Researcher workspace</span>
         </footer>
       </main>
     </div>

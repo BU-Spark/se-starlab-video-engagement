@@ -1,11 +1,12 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import Icon from './Icon';
 import ResearcherShell from './ResearcherShell';
 import { formatDateTime } from './format';
-import { deleteStudy, getSupabase, listStudies, type StudySummary } from './study-repository';
+import { deleteStudy, duplicateStudy, getSupabase, listStudies, type StudySummary } from './study-repository';
 import styles from './StudyBuilder.module.css';
 import page from './ResearcherPages.module.css';
 
@@ -15,6 +16,7 @@ type LoadState =
   | { status: 'error'; message: string };
 
 export default function StudyList() {
+  const router = useRouter();
   const [supabase] = useState(getSupabase);
   const [state, setState] = useState<LoadState>({ status: 'loading' });
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -35,6 +37,19 @@ export default function StudyList() {
     void load();
   }, [load]);
 
+  async function duplicate(study: StudySummary) {
+    if (!supabase) return;
+    setBusyId(study.id);
+    setActionError(null);
+    try {
+      const copy = await duplicateStudy(supabase, study.id);
+      router.push('/researcher/studies/' + copy.id + '/edit');
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not duplicate the study.');
+      setBusyId(null);
+    }
+  }
+
   async function remove(study: StudySummary) {
     if (!supabase) return;
     setBusyId(study.id);
@@ -54,11 +69,9 @@ export default function StudyList() {
     <ResearcherShell active="list" crumbs={['Studies']}>
       <div className={styles.pageHeading}>
         <div>
-          <span className={styles.eyebrow}>YOUR EXPERIMENTS</span>
           <h1>
             Studies<span>.</span>
           </h1>
-          <p>Edit a study before it runs, or open the data participants have synced.</p>
         </div>
         <div className={styles.headingActions}>
           <button
@@ -79,9 +92,6 @@ export default function StudyList() {
       {!supabase ? (
         <div className={page.emptyPanel}>
           <h2>Supabase is not configured</h2>
-          <p>
-            Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY to .env.local to list saved studies.
-          </p>
         </div>
       ) : state.status === 'loading' ? (
         <div className={page.emptyPanel} role="status">
@@ -95,7 +105,6 @@ export default function StudyList() {
       ) : state.studies.length === 0 ? (
         <div className={page.emptyPanel}>
           <h2>No studies yet</h2>
-          <p>Create your first study to make it available to the tablet app.</p>
           <Link href="/researcher/studies/new" className={styles.primaryButton}>
             <Icon name="plus" size={16} />
             Create a study
@@ -166,6 +175,15 @@ export default function StudyList() {
                             <Link href={'/researcher/studies/' + study.id + '/data'} className={page.linkButton}>
                               View data
                             </Link>
+                            <button
+                              type="button"
+                              className={page.linkButton}
+                              disabled={busyId !== null}
+                              aria-label={'Duplicate ' + study.name}
+                              onClick={() => void duplicate(study)}
+                            >
+                              {busyId === study.id ? 'Duplicating…' : 'Duplicate'}
+                            </button>
                             <button
                               type="button"
                               className={page.dangerLink}

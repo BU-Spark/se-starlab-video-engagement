@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import Icon from './Icon';
 import ResearcherShell from './ResearcherShell';
-import { buildRunsCsv, csvFileName, downloadCsv } from './csv';
+import { buildRunsCsv, buildRunsZip, csvFileName, downloadCsv, downloadZip, zipFileName } from './csv';
 import type { BlockViewRow, RunRow } from '@/app/utils/supabase/database.types';
 import { formatDateTime, formatDuration, formatMs } from './format';
 import { getStudy, getSupabase, listBlockViews, listRuns, type LoadedStudy } from './study-repository';
@@ -88,7 +88,7 @@ export default function RunData({ studyId }: { studyId: string }) {
     }
   }
 
-  async function download(target: RunRow[] | 'all', key: string) {
+  async function download(target: RunRow[] | 'all', key: string, format: 'csv' | 'zip' = 'csv') {
     if (state.status !== 'ready') return;
     const selected = target === 'all' ? runs : target;
     setDownloading(key);
@@ -96,14 +96,15 @@ export default function RunData({ studyId }: { studyId: string }) {
     try {
       const rows = await viewsFor(selected.map((run) => run.id));
       const { study, blocks } = state.loaded;
-      const csv = buildRunsCsv(study, blocks, selected, rows);
       const suffix =
         target === 'all'
           ? filter === 'all'
             ? 'all_runs'
             : filter + '_runs'
           : selected[0].participant_id + '_' + selected[0].started_at.slice(0, 10);
-      downloadCsv(csvFileName(study.name, suffix), csv);
+      if (format === 'zip')
+        downloadZip(zipFileName(study.name, suffix), buildRunsZip(study, blocks, selected, rows, suffix));
+      else downloadCsv(csvFileName(study.name, suffix), buildRunsCsv(study, blocks, selected, rows));
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Could not prepare the CSV.');
     } finally {
@@ -122,22 +123,21 @@ export default function RunData({ studyId }: { studyId: string }) {
     <ResearcherShell active="data" crumbs={['Studies', study?.name ?? 'Study', 'Saved data']}>
       <div className={styles.pageHeading}>
         <div>
-          <span className={styles.eyebrow}>SAVED DATA</span>
           <h1>
             {study?.name ?? 'Study data'}
             <span>.</span>
           </h1>
-          <p>
-            {state.status === 'ready'
-              ? allRuns.length +
+          {state.status === 'ready' && (
+            <p>
+              {allRuns.length +
                 ' run' +
                 (allRuns.length === 1 ? '' : 's') +
                 ' · ' +
                 allRuns.filter((run) => run.completed_at).length +
                 ' completed · last sync ' +
-                formatDateTime(lastSync)
-              : 'Runs synced from the tablet app.'}
-          </p>
+                formatDateTime(lastSync)}
+            </p>
+          )}
         </div>
         <div className={styles.headingActions}>
           <button
@@ -155,6 +155,14 @@ export default function RunData({ studyId }: { studyId: string }) {
           )}
           <button
             type="button"
+            className={styles.secondaryButton}
+            disabled={!runs.length || downloading !== null}
+            onClick={() => void download('all', 'zip', 'zip')}
+          >
+            {downloading === 'zip' ? 'Preparing…' : 'Download ZIP (' + runs.length + ')'}
+          </button>
+          <button
+            type="button"
             className={styles.primaryButton}
             disabled={!runs.length || downloading !== null}
             onClick={() => void download('all', 'all')}
@@ -168,7 +176,6 @@ export default function RunData({ studyId }: { studyId: string }) {
       {!supabase ? (
         <div className={page.emptyPanel}>
           <h2>Supabase is not configured</h2>
-          <p>Add the Supabase environment variables to .env.local to see synced runs.</p>
         </div>
       ) : state.status === 'loading' ? (
         <div className={page.emptyPanel} role="status">
@@ -177,7 +184,6 @@ export default function RunData({ studyId }: { studyId: string }) {
       ) : state.status === 'missing' ? (
         <div className={page.emptyPanel}>
           <h2>Study not found</h2>
-          <p>It may have been deleted.</p>
           <Link href="/researcher/studies" className={styles.secondaryButton}>
             Back to list
           </Link>
@@ -203,7 +209,6 @@ export default function RunData({ studyId }: { studyId: string }) {
                 </button>
               ))}
             </div>
-            <span className={page.subtle}>One CSV row per block view, with study and participant on every row.</span>
           </div>
           {actionError && (
             <div className={styles.saveError} role="alert">
@@ -214,7 +219,6 @@ export default function RunData({ studyId }: { studyId: string }) {
           {runs.length === 0 ? (
             <div className={page.emptyPanel}>
               <h2>{allRuns.length ? 'No runs match this filter' : 'No runs yet'}</h2>
-              <p>Runs appear here after the tablet app syncs a participant session.</p>
             </div>
           ) : (
             <div className={page.tableCard}>

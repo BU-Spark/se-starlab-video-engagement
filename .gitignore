@@ -56,3 +56,6 @@ __pycache__/
 docker.env
 docker.env.*
 !docker.env.example
+
+# agents
+.claude

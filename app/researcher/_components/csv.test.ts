@@ -1,5 +1,10 @@
-import { buildRunsCsv, csvCell, csvFileName, CSV_COLUMNS } from './csv';
+import { buildRunsCsv, buildRunsZip, csvCell, csvFileName, CSV_COLUMNS, zipFileName } from './csv';
+import { crc32 } from './zip';
+import { TextDecoder, TextEncoder } from 'util';
 import type { BlockViewRow, RunRow } from '@/app/utils/supabase/database.types';
+
+// jsdom has no TextEncoder/TextDecoder; the zip export uses them in the browser.
+Object.assign(globalThis, { TextEncoder, TextDecoder });
 
 const run = (id: string, participant: string): RunRow => ({
   id,
@@ -70,4 +75,48 @@ test('one row per block view, ordered by view_order, with study and participant 
 
 test('file names are filesystem-safe', () => {
   expect(csvFileName('Pilot: attention / v2', 'P 001')).toBe('Pilot_attention_v2_P_001.csv');
+});
+
+test('crc32 matches the standard check value', () => {
+  expect(crc32(new TextEncoder().encode('123456789'))).toBe(0xcbf43926);
+});
+
+/** Names and contents from a stored (uncompressed) zip, read through its local headers. */
+function unzip(zip: Uint8Array): Record<string, string> {
+  const view = new DataView(zip.buffer, zip.byteOffset, zip.byteLength);
+  const decoder = new TextDecoder('utf-8', { ignoreBOM: true });
+  const files: Record<string, string> = {};
+  let at = 0;
+  while (view.getUint32(at, true) === 0x04034b50) {
+    const size = view.getUint32(at + 18, true);
+    const nameLength = view.getUint16(at + 26, true);
+    const name = decoder.decode(zip.subarray(at + 30, at + 30 + nameLength));
+    files[name] = decoder.decode(zip.subarray(at + 30 + nameLength, at + 30 + nameLength + size));
+    at += 30 + nameLength + size;
+  }
+  return files;
+}
+
+test('zip holds the combined CSV and one CSV per run, each with a BOM', () => {
+  const blocks = [{ id: 'b1', label: 'instruction1', type: 'instructions' as const }];
+  const second = { ...run('r2', 'P001'), started_at: '2026-10-21T09:30:00.123Z' };
+  const files = unzip(
+    buildRunsZip(
+      { id: 's1', name: 'Pilot' },
+      blocks,
+      [run('r1', 'P001'), second],
+      [view(1, 'r1', 1), view(2, 'r2', 1)],
+      'all_runs'
+    )
+  );
+  expect(Object.keys(files)).toEqual([
+    'Pilot_all_runs.csv',
+    'runs/P001_2026-10-20T14_00_00Z.csv',
+    'runs/P001_2026-10-21T09_30_00Z.csv',
+  ]);
+  for (const text of Object.values(files)) expect(text.startsWith('﻿' + CSV_COLUMNS.join(','))).toBe(true);
+  expect(files['Pilot_all_runs.csv'].trimEnd().split('\r\n')).toHaveLength(3);
+  expect(files['runs/P001_2026-10-21T09_30_00Z.csv']).toContain(',r2,');
+  expect(files['runs/P001_2026-10-21T09_30_00Z.csv']).not.toContain(',r1,');
+  expect(zipFileName('Pilot', 'all_runs')).toBe('Pilot_all_runs.zip');
 });

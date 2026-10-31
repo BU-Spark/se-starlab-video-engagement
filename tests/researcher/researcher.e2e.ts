@@ -5,7 +5,7 @@ import process from 'node:process';
 const fixture = (name: string) => path.join(process.cwd(), 'tests/researcher/fixtures', name);
 
 async function addBlock(page: Page, type: 'Instructions' | 'Video' | 'Survey') {
-  const choice = page.getByRole('button', { name: new RegExp('^' + type + ' ') });
+  const choice = page.getByRole('button', { name: type, exact: true });
   if (!(await choice.isVisible())) await page.getByRole('button', { name: 'Add block', exact: true }).click();
   await choice.click();
 }
@@ -17,7 +17,6 @@ test.beforeEach(async ({ page }) => {
 
 test('1. The real page opens and its settings can be edited', async ({ page }) => {
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Create a study.');
-  await expect(page.getByText('Frontend preview', { exact: true })).toBeVisible();
   // CI and the isolated preview have no Supabase env vars, so saving must stay disabled.
   await expect(page.getByText(/Supabase is not configured/)).toBeVisible();
   const saves = page.getByRole('button', { name: 'Save study', exact: true });
@@ -88,7 +87,7 @@ test('3. A local video really loads and plays in the browser', async ({ page }) 
 
   await input.setInputFiles(fixture('stimulus.webm'));
   await expect(page.getByText('stimulus.webm', { exact: true })).toBeVisible();
-  await expect(page.getByText(/Ready for local preview/)).toBeVisible();
+  await expect(page.getByText(/^\d+\.\d MB$/)).toBeVisible();
   // The generated label is replaced by the file name, which becomes the stimulus name in exports.
   await expect(page.getByLabel('Block label', { exact: false })).toHaveValue('stimulus.webm');
   const video = page.getByLabel('Video preview for block 1', { exact: true });

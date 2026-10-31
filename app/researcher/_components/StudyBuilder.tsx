@@ -27,6 +27,7 @@ import {
 import {
   createStudyInSupabase,
   deleteStudy,
+  duplicateStudy,
   getSupabase,
   SaveStudyError,
   updateStudyInSupabase,
@@ -55,36 +56,26 @@ function progressText(progress: SaveProgress): string {
   return 'Uploading files ' + Math.min(progress.done + 1, progress.total) + ' of ' + progress.total + '…';
 }
 
-const blockInfo: Record<BlockType, { title: string; icon: IconName; description: string }> = {
-  instructions: { title: 'Instructions', icon: 'text', description: 'Give participants context and guidance.' },
-  video: { title: 'Video', icon: 'video', description: 'Add a short-form video stimulus.' },
-  survey: { title: 'Survey', icon: 'survey', description: 'Collect a response on a Likert scale.' },
+const blockInfo: Record<BlockType, { title: string; icon: IconName }> = {
+  instructions: { title: 'Instructions', icon: 'text' },
+  video: { title: 'Video', icon: 'video' },
+  survey: { title: 'Survey', icon: 'survey' },
 };
 
 function Toggle({
   label,
-  description,
   checked,
   onChange,
   disabled = false,
-  badge,
 }: {
   label: string;
-  description: string;
   checked: boolean;
   onChange: () => void;
   disabled?: boolean;
-  badge?: string;
 }) {
   return (
     <div className={styles.toggleRow}>
-      <div>
-        <span className={styles.controlLabel}>
-          {label}
-          {badge && <span className={styles.soon}>{badge}</span>}
-        </span>
-        <p>{description}</p>
-      </div>
+      <span className={styles.controlLabel}>{label}</span>
       <button
         type="button"
         role="switch"
@@ -123,6 +114,7 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
   );
   const [confirmStudyDelete, setConfirmStudyDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
   const [supabase] = useState(getSupabase);
   const previewUrls = useRef(new Set<string>());
   const addButton = useRef<HTMLButtonElement>(null);
@@ -321,6 +313,21 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
     setSaveState({ status: 'idle' });
   }
 
+  async function duplicateThisStudy() {
+    if (!edit || !supabase) return;
+    setDuplicating(true);
+    try {
+      const copy = await duplicateStudy(supabase, edit.loaded.study.id);
+      router.push('/researcher/studies/' + copy.id + '/edit');
+    } catch (error) {
+      setDuplicating(false);
+      setSaveState({
+        status: 'error',
+        message: error instanceof Error ? error.message : 'Could not duplicate the study.',
+      });
+    }
+  }
+
   async function removeStudy() {
     if (!edit || !supabase) return;
     setDeleting(true);
@@ -351,14 +358,7 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
 
   function saveButton() {
     return (
-      <button
-        className={styles.primaryButton}
-        type="button"
-        disabled={!supabase || locked}
-        onClick={save}
-        title={supabase ? undefined : 'Supabase is not configured for this environment.'}
-        aria-describedby="backend-notice"
-      >
+      <button className={styles.primaryButton} type="button" disabled={!supabase || locked} onClick={save}>
         <Icon name="save" size={17} />
         {saving ? 'Saving…' : edit ? 'Save changes' : 'Save study'}
       </button>
@@ -373,10 +373,7 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
             <span className={styles.typeIcon} data-type={type}>
               <Icon name={blockInfo[type].icon} size={22} />
             </span>
-            <span>
-              <strong>{blockInfo[type].title}</strong>
-              <small>{blockInfo[type].description}</small>
-            </span>
+            <strong>{blockInfo[type].title}</strong>
             <Icon name="plus" size={18} />
           </button>
         ))}
@@ -391,11 +388,7 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
         ? 'Saved to cloud'
         : dirty
           ? 'Unsaved changes'
-          : edit
-            ? lockedByRuns
-              ? 'Locked · has participant data'
-              : 'No unsaved changes'
-            : 'New study';
+          : null;
 
   return (
     <ResearcherShell
@@ -405,18 +398,18 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
       <form onSubmit={(event) => event.preventDefault()} onBlur={(event) => touchField(event.target.id)} noValidate>
         <div className={styles.pageHeading}>
           <div>
-            <span className={styles.eyebrow}>{edit ? 'UPDATE YOUR EXPERIMENT' : 'DESIGN YOUR EXPERIMENT'}</span>
             <h1>
               {edit ? 'Edit study' : 'Create a study'}
               <span>.</span>
             </h1>
-            <p>{edit ? 'Changes apply to future participant runs.' : 'Shape the experience, one block at a time.'}</p>
           </div>
           <div className={styles.headingActions}>
-            <span className={styles.saveIndicator} role="status">
-              <span />
-              {statusLabel}
-            </span>
+            {statusLabel && (
+              <span className={styles.saveIndicator} role="status">
+                <span />
+                {statusLabel}
+              </span>
+            )}
             {edit && (
               <button
                 type="button"
@@ -431,31 +424,10 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
           </div>
         </div>
 
-        {supabase ? (
+        {!supabase && (
           <div className={styles.demoNotice}>
             <Icon name="info" size={17} />
-            <p>
-              <strong>Cloud saving</strong>
-              <span id="backend-notice">
-                {edit
-                  ? 'Saving uploads new files and updates this study for the tablet app.'
-                  : 'Saving uploads videos and icons to Supabase Storage and creates the study for the tablet app.'}{' '}
-                Unsaved work is lost if you close this page.
-              </span>
-            </p>
-            <span className={styles.demoTag}>SUPABASE</span>
-          </div>
-        ) : (
-          <div className={styles.demoNotice}>
-            <Icon name="info" size={17} />
-            <p>
-              <strong>Frontend preview</strong>
-              <span id="backend-notice">
-                Supabase is not configured, so saving is disabled. Add NEXT_PUBLIC_SUPABASE_URL and
-                NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY to .env.local to enable it.
-              </span>
-            </p>
-            <span className={styles.demoTag}>LOCAL ONLY</span>
+            <p>Supabase is not configured. Saving is disabled.</p>
           </div>
         )}
 
@@ -469,12 +441,16 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
           <div className={styles.lockNotice} role="note">
             <Icon name="info" size={17} />
             <p>
-              <strong>
-                This study has {edit.loaded.runCount} participant run{edit.loaded.runCount === 1 ? '' : 's'}, so it is
-                read-only.
-              </strong>
-              <span>Collected data refers to these blocks; editing them would change what that data means.</span>
+              Read-only · {edit.loaded.runCount} participant run{edit.loaded.runCount === 1 ? '' : 's'}
             </p>
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              disabled={!supabase || duplicating}
+              onClick={() => void duplicateThisStudy()}
+            >
+              {duplicating ? 'Duplicating…' : 'Duplicate to edit'}
+            </button>
             <Link className={styles.secondaryButton} href={'/researcher/studies/' + edit.loaded.study.id + '/data'}>
               View data
             </Link>
@@ -483,10 +459,7 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
         {saveState.status === 'saved' && edit && (
           <div className={styles.saveSuccess} role="status">
             <Icon name="save" size={17} />
-            <p>
-              <strong>Changes saved.</strong>
-              <span>The tablet app will use this version for new runs.</span>
-            </p>
+            <p>Changes saved.</p>
             <Link className={styles.secondaryButton} href="/researcher/studies">
               Back to list
             </Link>
@@ -495,13 +468,7 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
         {saveState.status === 'saved' && !edit && (
           <div className={styles.saveSuccess} role="status">
             <Icon name="save" size={17} />
-            <p>
-              <strong>“{draft.name.trim()}” is saved.</strong>
-              <span>
-                Study ID <code>{saveState.id}</code> is now available to the tablet app. You can edit it from the study
-                list until participants run it.
-              </span>
-            </p>
+            <p>“{draft.name.trim()}” is saved.</p>
             <Link className={styles.secondaryButton} href="/researcher/studies">
               View in list
             </Link>
@@ -519,7 +486,6 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
               <span className={styles.sectionNumber}>01</span>
               <div>
                 <h2 id="settings-heading">Experiment settings</h2>
-                <p>Set the rules for your participant experience.</p>
               </div>
               <span className={styles.sectionIcon}>
                 <Icon name="flask" size={23} />
@@ -567,13 +533,6 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
                       </button>
                     ))}
                   </div>
-                  <p className={styles.hint}>
-                    {draft.settings.randomization === 'off'
-                      ? 'Blocks run in the order you arrange below.'
-                      : draft.settings.randomization === 'all'
-                        ? 'Every block is shuffled for each participant.'
-                        : 'Blocks with the same group name are shuffled among their own positions; ungrouped blocks stay in place.'}
-                  </p>
                   <FieldError id="randomization-error" message={errors.randomization} />
                 </div>
               </div>
@@ -582,13 +541,11 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
                   <h3>Display</h3>
                   <Toggle
                     label="Video progress bar"
-                    description="Show playback progress at the top of the video."
                     checked={draft.settings.show_video_bar}
                     onChange={() => updateSettings({ show_video_bar: !draft.settings.show_video_bar })}
                   />
                   <Toggle
                     label="Response buttons"
-                    description="Show left and right buttons over the video."
                     checked={draft.settings.show_response_buttons}
                     onChange={() => updateSettings({ show_response_buttons: !draft.settings.show_response_buttons })}
                   />
@@ -607,10 +564,7 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
                           : undefined);
                       return (
                         <div className={styles.responseSetting} key={side}>
-                          <div className={styles.responseHeading}>
-                            <span className={styles.fieldLabel}>{title} button</span>
-                            <span className={styles.miniHint}>{side === 'left' ? 'Dislike' : 'Like'} by default</span>
-                          </div>
+                          <span className={styles.fieldLabel}>{title} button</span>
                           <div className={styles.iconAndLabel}>
                             <div className={styles.iconUpload}>
                               <label className={styles.iconPicker} title={'Choose custom ' + side + ' button icon'}>
@@ -677,19 +631,16 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
                   <h3 className={styles.subHeading}>Side buttons</h3>
                   <Toggle
                     label="Comment button"
-                    description="Opens a panel with each video's comments."
                     checked={draft.settings.comment_button}
                     onChange={() => updateSettings({ comment_button: !draft.settings.comment_button })}
                   />
                   <Toggle
                     label="Save button"
-                    description="Lets participants save and unsave a video."
                     checked={draft.settings.save_button}
                     onChange={() => updateSettings({ save_button: !draft.settings.save_button })}
                   />
                   <Toggle
                     label="Share button"
-                    description="Opens a share panel; the option picked is recorded."
                     checked={draft.settings.share_button}
                     onChange={() => updateSettings({ share_button: !draft.settings.share_button })}
                   />
@@ -760,7 +711,6 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
                   )}
                   <Toggle
                     label="Pause while panels are open"
-                    description="Pause the video while the share or comments panel is open."
                     checked={draft.settings.pause_on_share}
                     disabled={!draft.settings.share_button && !draft.settings.comment_button}
                     onChange={() => updateSettings({ pause_on_share: !draft.settings.pause_on_share })}
@@ -770,38 +720,25 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
                   <h3>Controls</h3>
                   <Toggle
                     label="Swipe back"
-                    description="Allow participants to revisit the previous block."
                     checked={draft.settings.allow_swipe_back}
                     onChange={() => updateSettings({ allow_swipe_back: !draft.settings.allow_swipe_back })}
                   />
                   <Toggle
                     label="Tap to pause"
-                    description="Let participants pause and resume a video."
                     checked={draft.settings.allow_pausing}
                     onChange={() => updateSettings({ allow_pausing: !draft.settings.allow_pausing })}
                   />
                   <h3 className={styles.subHeading}>Recording</h3>
                   <Toggle
                     label="Audio recording"
-                    badge="Tablet support pending"
-                    description="Record from the tablet microphone during the session."
                     checked={draft.settings.audio_record}
                     onChange={() => updateSettings({ audio_record: !draft.settings.audio_record })}
                   />
                   <Toggle
                     label="Camera recording"
-                    badge="Tablet support pending"
-                    description="Record from the front camera during the session."
                     checked={draft.settings.camera_record}
                     onChange={() => updateSettings({ camera_record: !draft.settings.camera_record })}
                   />
-                  <div className={styles.controlNote}>
-                    <Icon name="info" size={17} />
-                    <p>
-                      These settings are passed to the participant app. This workspace configures the study; it does not
-                      run an experiment.
-                    </p>
-                  </div>
                 </div>
               </div>
             </div>
@@ -815,7 +752,6 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
                   <h2 id="blocks-heading">
                     Experiment blocks <span className={styles.count}>{draft.blocks.length}</span>
                   </h2>
-                  <p>Build the sequence your participants will follow.</p>
                 </div>
               </div>
               <button
@@ -835,12 +771,6 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
                 <span className={styles.emptyIcon}>
                   <Icon name="flask" size={30} />
                 </span>
-                <h3>A blank canvas for your next study</h3>
-                <p>
-                  Start with instructions, a video, or a question.
-                  <br />
-                  You can change the order at any time.
-                </p>
                 {blockPicker()}
               </div>
             )}
@@ -921,14 +851,9 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
                             autoComplete="off"
                             onChange={(e) => updateBlock(block.id, (b) => ({ ...b, label: e.target.value }))}
                             aria-invalid={!!inputError('label')}
-                            aria-describedby={
-                              inputError('label') ? block.id + '-label-error' : block.id + '-label-hint'
-                            }
+                            aria-describedby={inputError('label') ? block.id + '-label-error' : undefined}
                           />
                           <FieldError id={block.id + '-label-error'} message={inputError('label')} />
-                          <p className={styles.hint} id={block.id + '-label-hint'}>
-                            Shown as the stimulus name in exported data.
-                          </p>
                         </div>
                         {draft.settings.randomization === 'groups' && (
                           <div className={styles.field}>
@@ -962,7 +887,6 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
                             aria-describedby={inputError('body') ? block.id + '-body-error' : undefined}
                           />
                           <FieldError id={block.id + '-body-error'} message={inputError('body')} />
-                          <p className={styles.hint}>Participants swipe to continue to the next block.</p>
                         </div>
                       )}
 
@@ -975,10 +899,7 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
                             <span className={styles.uploadIcon}>
                               <Icon name="upload" size={23} />
                             </span>
-                            <span>
-                              <strong>{block.media ? 'Replace video' : 'Choose a video file'}</strong>
-                              <small>Uploaded to cloud storage when you save · select a browser-playable video</small>
-                            </span>
+                            <strong>{block.media ? 'Replace video' : 'Choose a video file'}</strong>
                             <span className={styles.browseLabel}>Browse files</span>
                             <input
                               type="file"
@@ -1024,19 +945,9 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
                               <div className={styles.mediaDetails}>
                                 <div>
                                   <strong>{mediaName(block.media)}</strong>
-                                  <span>
-                                    {block.media.kind === 'stored'
-                                      ? block.media.url && block.media.status !== 'error'
-                                        ? 'Saved in cloud storage'
-                                        : 'Saved in cloud storage · preview unavailable'
-                                      : (block.media.file.size / 1024 / 1024).toFixed(1) +
-                                        ' MB · ' +
-                                        (block.media.status === 'ready'
-                                          ? 'Ready for local preview · uploads on save'
-                                          : block.media.status === 'error'
-                                            ? 'Preview unavailable'
-                                            : 'Loading preview…')}
-                                  </span>
+                                  {block.media.kind === 'local' && (
+                                    <span>{(block.media.file.size / 1024 / 1024).toFixed(1) + ' MB'}</span>
+                                  )}
                                 </div>
                                 <button
                                   type="button"
@@ -1067,7 +978,7 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
                               <input
                                 id={block.id + '-title'}
                                 value={block.title}
-                                placeholder="Optional · shown bottom-left over the video"
+                                placeholder="Optional"
                                 autoComplete="off"
                                 onChange={(e) =>
                                   updateBlock(block.id, (b) =>
@@ -1082,7 +993,7 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
                                 id={block.id + '-description'}
                                 rows={2}
                                 value={block.description}
-                                placeholder="Optional · line breaks are kept"
+                                placeholder="Optional"
                                 onChange={(e) =>
                                   updateBlock(block.id, (b) =>
                                     b.type === 'video' ? { ...b, description: e.target.value } : b
@@ -1094,11 +1005,6 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
                           <div className={styles.optionsHeading}>
                             <span className={styles.fieldLabel} id={block.id + '-comments-label'}>
                               Comments
-                            </span>
-                            <span className={styles.miniHint}>
-                              {draft.settings.comment_button
-                                ? block.comments.length + ' shown in the comments panel'
-                                : 'Turn on the comment button to show these'}
                             </span>
                           </div>
                           <div
@@ -1223,7 +1129,6 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
                           </div>
                           <div className={styles.optionsHeading}>
                             <span className={styles.fieldLabel}>Response options</span>
-                            <span className={styles.miniHint}>{block.options.length} options · minimum 2</span>
                           </div>
                           <div className={styles.optionList}>
                             {block.options.map((option, optionIndex) => (
@@ -1310,29 +1215,10 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
             )}
           </section>
         </fieldset>
-        <div className={styles.bottomBar}>
-          <p>
-            <Icon name="info" size={16} />
-            <span>
-              {!supabase
-                ? 'Changes stay in this tab. No participant data is collected.'
-                : edit
-                  ? 'Saving updates this study in Supabase.'
-                  : 'Saving creates the study in Supabase. No participant data is collected here.'}
-            </span>
-          </p>
-          {saveButton()}
-        </div>
+        <div className={styles.bottomBar}>{saveButton()}</div>
         {edit && (
           <section className={styles.dangerZone} aria-labelledby="danger-heading">
-            <div>
-              <h2 id="danger-heading">Delete study</h2>
-              <p>
-                {lockedByRuns
-                  ? 'Studies with participant data cannot be deleted.'
-                  : 'Removes the study, its blocks and its uploaded files. This cannot be undone.'}
-              </p>
-            </div>
+            <h2 id="danger-heading">Delete study</h2>
             {confirmStudyDelete ? (
               <div role="group" aria-label="Confirm study deletion" className={styles.dangerActions}>
                 <button type="button" className={styles.secondaryButton} onClick={() => setConfirmStudyDelete(false)}>

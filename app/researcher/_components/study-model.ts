@@ -386,6 +386,60 @@ export function referencedPaths(
   );
 }
 
+/** "<name> (copy)", or "(copy 2)", "(copy 3)"… when that name is taken. */
+export function copyName(name: string, existingNames: string[]): string {
+  const taken = new Set(existingNames);
+  const base = name + ' (copy';
+  if (!taken.has(base + ')')) return base + ')';
+  let n = 2;
+  while (taken.has(base + ' ' + n + ')')) n++;
+  return base + ' ' + n + ')';
+}
+
+/**
+ * Rows for an editable copy of a saved study (used when the original is locked by runs).
+ * Blocks get new ids so the copy's runs never mix with the original's; every Storage file is
+ * copied under the new study's folder, so deleting either study leaves the other's files intact.
+ */
+export function copyStudyRows(
+  study: StudyRow,
+  blocks: BlockRow[],
+  newId: string,
+  newName: string
+): { study: StudyInsert; blocks: BlockInsert[]; files: { from: string; to: string }[] } {
+  const files: { from: string; to: string }[] = [];
+  const copyPath = (path: string | null) => {
+    if (!path) return null;
+    const slash = path.indexOf('/');
+    const to = newId + (slash >= 0 ? path.slice(slash) : '/' + path);
+    files.push({ from: path, to });
+    return to;
+  };
+  const studyCopy: Partial<StudyRow> & StudyInsert = {
+    ...study,
+    id: newId,
+    name: newName,
+    left_button_icon_path: copyPath(study.left_button_icon_path),
+    right_button_icon_path: copyPath(study.right_button_icon_path),
+  };
+  delete studyCopy.created_at;
+  delete studyCopy.updated_at;
+  const blockCopies = [...blocks]
+    .sort((a, b) => a.position - b.position)
+    .map((block, index) => {
+      const copy: Partial<BlockRow> & BlockInsert = {
+        ...block,
+        id: createId(),
+        study_id: newId,
+        position: index + 1,
+        video_path: copyPath(block.video_path),
+      };
+      delete copy.created_at;
+      return copy;
+    });
+  return { study: studyCopy, blocks: blockCopies, files };
+}
+
 /**
  * Inverse of `toStudyRows`: rebuilds editor state from saved rows (edit mode).
  * `signedUrls` maps Storage path → preview URL; missing entries leave the preview empty.

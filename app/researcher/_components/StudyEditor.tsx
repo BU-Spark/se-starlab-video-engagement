@@ -67,7 +67,6 @@ export default function StudyEditor({ studyId }: { studyId: string }) {
     <ResearcherShell active="edit" crumbs={['Studies', 'Edit']}>
       <div className={styles.pageHeading}>
         <div>
-          <span className={styles.eyebrow}>UPDATE YOUR EXPERIMENT</span>
           <h1>
             Edit study<span>.</span>
           </h1>
@@ -76,7 +75,6 @@ export default function StudyEditor({ studyId }: { studyId: string }) {
       {!supabase ? (
         <div className={page.emptyPanel}>
           <h2>Supabase is not configured</h2>
-          <p>Add the Supabase environment variables to .env.local to edit saved studies.</p>
         </div>
       ) : state.status === 'loading' ? (
         <div className={page.emptyPanel} role="status">
@@ -85,7 +83,6 @@ export default function StudyEditor({ studyId }: { studyId: string }) {
       ) : state.status === 'missing' ? (
         <div className={page.emptyPanel}>
           <h2>Study not found</h2>
-          <p>It may have been deleted.</p>
           <Link href="/researcher/studies" className={styles.secondaryButton}>
             Back to list
           </Link>

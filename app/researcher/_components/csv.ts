@@ -1,4 +1,5 @@
 import type { BlockRow, BlockViewRow, RunRow, StudyRow } from '@/app/utils/supabase/database.types';
+import { createZip, type ZipEntry } from './zip';
 
 /** Long-format export: one row per block view, every row self-describing (study, participant, run). */
 export const CSV_COLUMNS = [
@@ -78,14 +79,45 @@ export function buildRunsCsv(
   return lines.join('\r\n') + '\r\n';
 }
 
+const slug = (value: string) => value.replace(/[^A-Za-z0-9_-]+/g, '_').replace(/^_+|_+$/g, '') || 'study';
+
 export function csvFileName(studyName: string, suffix: string): string {
-  const slug = (value: string) => value.replace(/[^A-Za-z0-9_-]+/g, '_').replace(/^_+|_+$/g, '') || 'study';
   return slug(studyName) + '_' + slug(suffix) + '.csv';
 }
 
-/** Triggers a browser download; the BOM lets Excel detect UTF-8 (e.g. Chinese labels). */
-export function downloadCsv(fileName: string, csv: string) {
-  const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }));
+/** The BOM lets Excel detect UTF-8 (e.g. Chinese labels). */
+const BOM = '﻿';
+
+/**
+ * Zip with the combined CSV of the given runs plus one CSV per run under runs/.
+ * Run files are named participant + start time, so repeated participant IDs stay distinct.
+ */
+export function buildRunsZip(
+  study: Pick<StudyRow, 'id' | 'name'>,
+  blocks: Pick<BlockRow, 'id' | 'label' | 'type'>[],
+  runs: RunRow[],
+  views: BlockViewRow[],
+  suffix: string
+): Uint8Array {
+  const encoder = new TextEncoder();
+  const entry = (name: string, csv: string): ZipEntry => ({ name, data: encoder.encode(BOM + csv) });
+  return createZip([
+    entry(csvFileName(study.name, suffix), buildRunsCsv(study, blocks, runs, views)),
+    ...runs.map((run) =>
+      entry(
+        'runs/' + slug(run.participant_id) + '_' + slug(run.started_at.replace(/\.\d+/, '')) + '.csv',
+        buildRunsCsv(study, blocks, [run], views)
+      )
+    ),
+  ]);
+}
+
+export function zipFileName(studyName: string, suffix: string): string {
+  return slug(studyName) + '_' + slug(suffix) + '.zip';
+}
+
+function downloadBlob(fileName: string, blob: Blob) {
+  const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
   link.download = fileName;
@@ -93,4 +125,12 @@ export function downloadCsv(fileName: string, csv: string) {
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+export function downloadCsv(fileName: string, csv: string) {
+  downloadBlob(fileName, new Blob([BOM + csv], { type: 'text/csv;charset=utf-8' }));
+}
+
+export function downloadZip(fileName: string, zip: Uint8Array) {
+  downloadBlob(fileName, new Blob([zip as BlobPart], { type: 'application/zip' }));
 }

@@ -1,4 +1,6 @@
 import {
+  copyName,
+  copyStudyRows,
   createBlock,
   createComment,
   createStudy,
@@ -267,4 +269,45 @@ test('rows saved before the migration still load (legacy "instruction" type, mis
   expect(restored.blocks[0]).toMatchObject({ type: 'instructions', body: 'Hi' });
   expect(restored.settings).toMatchObject({ comment_button: false, share_button: false, audio_record: false });
   expect(restored.settings.share_options.map((o) => o.label)).toEqual(DEFAULT_SHARE_OPTIONS);
+});
+
+test('copy names skip names already taken', () => {
+  expect(copyName('Pilot', [])).toBe('Pilot (copy)');
+  expect(copyName('Pilot', ['Pilot (copy)'])).toBe('Pilot (copy 2)');
+  expect(copyName('Pilot', ['Pilot (copy)', 'Pilot (copy 2)', 'Pilot (copy 4)'])).toBe('Pilot (copy 3)');
+});
+
+test('copyStudyRows gives the copy new ids and its own copies of every file', () => {
+  const draft = readyDraft();
+  const rows = toStudyRows(draft, STUDY_ID, pathsFor(draft));
+  const study = { ...rows.study, created_at: NOW, updated_at: NOW };
+  const blocks = rows.blocks.map((block) => ({ ...block, created_at: NOW })).reverse();
+  const NEW_ID = '00000000-0000-4000-8000-000000000002';
+  const copy = copyStudyRows(study, blocks, NEW_ID, 'Copy');
+
+  expect(copy.study).toEqual({
+    ...rows.study,
+    id: NEW_ID,
+    name: 'Copy',
+    left_button_icon_path: rows.study.left_button_icon_path?.replace(STUDY_ID, NEW_ID) ?? null,
+    right_button_icon_path: rows.study.right_button_icon_path?.replace(STUDY_ID, NEW_ID) ?? null,
+  });
+  expect(copy.blocks.map((block) => block.position)).toEqual(rows.blocks.map((block) => block.position));
+  copy.blocks.forEach((block, index) => {
+    const original = rows.blocks[index];
+    expect(block).toEqual({
+      ...original,
+      id: block.id,
+      study_id: NEW_ID,
+      video_path: original.video_path?.replace(STUDY_ID, NEW_ID) ?? null,
+    });
+    expect(block.id).not.toBe(original.id);
+  });
+  const originalPaths = [
+    rows.study.left_button_icon_path,
+    rows.study.right_button_icon_path,
+    ...rows.blocks.map((block) => block.video_path),
+  ].filter(Boolean);
+  expect(copy.files.map((file) => file.from).sort()).toEqual([...originalPaths].sort());
+  for (const file of copy.files) expect(file.to.startsWith(NEW_ID + '/')).toBe(true);
 });

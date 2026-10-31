@@ -1,7 +1,15 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { BlockRow, BlockViewRow, RunRow, StudyRow } from '@/app/utils/supabase/database.types';
 import { getSupabase, STUDY_MEDIA_BUCKET } from '@/app/utils/supabase/client';
-import { createId, plannedUploads, referencedPaths, toStudyRows, type StudyDraft } from './study-model';
+import {
+  copyName,
+  copyStudyRows,
+  createId,
+  plannedUploads,
+  referencedPaths,
+  toStudyRows,
+  type StudyDraft,
+} from './study-model';
 
 export { getSupabase, STUDY_MEDIA_BUCKET };
 
@@ -294,6 +302,61 @@ export async function updateStudyInSupabase(
           .catch(() => undefined);
     } catch (error) {
       await removeUploads();
+      throw error;
+    }
+  } catch (error) {
+    throw wrap(error);
+  }
+}
+
+/**
+ * Creates an editable copy of a study (settings, blocks and files, no runs) named "<name> (copy)".
+ * Files are copied, not shared, so deleting either study never removes the other's media.
+ * On failure, everything already copied or inserted is removed again.
+ */
+export async function duplicateStudy(supabase: SupabaseClient, studyId: string): Promise<{ id: string }> {
+  try {
+    const loaded = await getStudy(supabase, studyId);
+    if (!loaded) throw new SaveStudyError('This study no longer exists.');
+    const names = await supabase
+      .from('studies')
+      .select('name')
+      .like('name', loaded.study.name + ' (copy%');
+    fail(names.error, 'check the study name');
+    const newId = createId();
+    const rows = copyStudyRows(
+      loaded.study,
+      loaded.blocks,
+      newId,
+      copyName(
+        loaded.study.name,
+        (names.data ?? []).map((row) => row.name)
+      )
+    );
+
+    const storage = supabase.storage.from(STUDY_MEDIA_BUCKET);
+    const copied: string[] = [];
+    const removeCopies = async () => {
+      if (copied.length) await storage.remove(copied).catch(() => undefined);
+    };
+    try {
+      for (const file of rows.files) {
+        const { error } = await storage.copy(file.from, file.to);
+        if (error) throw new SaveStudyError('Could not copy ' + file.from + ': ' + error.message);
+        copied.push(file.to);
+      }
+      fail((await supabase.from('studies').insert(rows.study)).error, 'save the copy');
+      if (rows.blocks.length) {
+        const blocksInsert = await supabase.from('blocks').insert(rows.blocks);
+        if (blocksInsert.error) {
+          await supabase.from('blocks').delete().eq('study_id', newId);
+          await supabase.from('studies').delete().eq('id', newId);
+          throw describe(blocksInsert.error, 'save the copied blocks');
+        }
+      }
+      return { id: newId };
+    } catch (error) {
+      await removeCopies();
       throw error;
     }
   } catch (error) {
