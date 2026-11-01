@@ -12,10 +12,10 @@ Status values: `Todo`, `In progress`, `Blocked`, `Done`.
 
 | #   | Task                                                    | Owner        | Priority | Status | Depends on |
 | --- | ------------------------------------------------------- | ------------ | -------- | ------ | ---------- |
-| T1  | Create base tables and apply the contract migrations    | E3           | High     | Todo   | —          |
+| T1  | Create base tables and apply the contract migrations    | E3           | High     | In progress | —          |
 | T2  | Researcher authentication and access policies           | E3 + E1      | Medium   | Todo   | T1         |
 | T3  | Tablet records `video_start_at` / `video_end_at`        | E2           | High     | Todo   | —          |
-| T4  | Tablet Supabase sync path verified end to end           | E2           | High     | Todo   | T1         |
+| T4  | Tablet Supabase sync path verified end to end           | E2           | High     | In progress | T1         |
 | T5  | Agree on the CSV output format with the client          | E1 + E2 + E3 | Medium   | Todo   | —          |
 | T6  | Download all runs as a .zip                             | E1           | Medium   | Done   | —          |
 | T7  | Duplicate study (edit a locked study as a copy)         | E1           | Low      | Done   | —          |
@@ -25,8 +25,8 @@ Status values: `Todo`, `In progress`, `Blocked`, `Done`.
 ## Current State
 
 - The researcher pages (list, builder, edit, duplicate, data with CSV and ZIP) are implemented against Supabase, and the unit tests pass (`npm run researcher:unit`, 24 tests).
-- **The Supabase project in the shared `.env.local` has no `studies`, `blocks`, `runs` or `block_views` tables** (PostgREST returns `PGRST205`). The `study-media` bucket exists and is empty. Until T1 is done, no researcher button has run against the real database.
-- The `supabase-db` branch only contains the `button_clicks` skeleton.
+- **Local Supabase (branch `integration`):** base tables (`20261018044720_create_study_schema.sql`) and both contract migrations apply cleanly from scratch (`npx supabase db reset`). Verified 2026-11-01 with a browser run: researcher Save → study, blocks and videos in Supabase → tablet lists, preloads and runs it → `submit_run` → View data shows the run; swipe-back rows, retry idempotency, RLS and the lock trigger checked. **The cloud project still needs `npx supabase db push`.**
+- `integration` = `supabase-db` + `Louis` (which includes `ReelsFrontend`) + `main`. Demo-only anon policies live in `supabase/seed.sql`, which runs locally only.
 - `Louis-frontend` is 8 commits ahead of `main` and not merged yet.
 
 ## Branches
@@ -177,3 +177,4 @@ Each line is one researcher button or flow:
 | ---------- | -------------------------------------------------------- |
 | 2026-10-31 | Created from a review against the client design document |
 | 2026-10-31 | T6 and T7 implemented in the researcher frontend         |
+| 2026-11-01 | T1/T4 verified locally on `integration`; cloud push pending |

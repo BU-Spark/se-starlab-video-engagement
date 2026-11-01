@@ -1,5 +1,42 @@
 This is a template for Spark! DS 519 projects. It has pre-configured eslint.config.mjs - ([`ESLint`](https://eslint.org/)) and .prettierrc - ([`Prettier`](https://prettier.io/)) to reflect industry standard development guidelines.
 
+## Running the Whole Platform Locally
+
+Three parts run on your machine:
+
+| Part                   | What it is                                               | Address                                                                                        |
+| ---------------------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Supabase               | Postgres, Storage and the API, in Docker                 | API http://127.0.0.1:54321, Studio http://127.0.0.1:54323                                      |
+| Next.js app            | Researcher website and participant tablet app (one app) | http://localhost:3000/researcher/studies and http://localhost:3000/tablet                      |
+| Python backend         | FastAPI in Docker (`/health` only for now)               | http://localhost:8000                                                                          |
+
+Both front ends talk to Supabase directly with the publishable key. Access rules (RLS), the `submit_run`
+function and a lock-after-runs trigger in `supabase/migrations/` act as the backend. See
+[docs/supabase-alignment.md](docs/supabase-alignment.md) for the contract between the apps and the tables.
+
+Prerequisites: Node (see `.nvmrc`) and Docker Desktop, running.
+
+```bash
+npm install
+npx supabase start                    # first run downloads the Supabase images
+cp .env.example .env.local            # then fill in the two NEXT_PUBLIC_SUPABASE_* values
+cp backend/.env.example backend/.env  # then fill in SUPABASE_SECRET_KEY
+npx supabase status                   # prints the API URL, Publishable key and Secret key to copy
+docker compose up -d                  # Python backend
+npm run dev                           # researcher website + tablet app
+```
+
+`npx supabase start` creates the tables from `supabase/migrations/` and then runs `supabase/seed.sql`.
+The seed adds **local-only** policies that let the researcher pages work without a login. They are never
+sent to the cloud project (`npx supabase db push` does not run the seed). To wipe local data and rebuild
+the database from scratch, run `npx supabase db reset`.
+
+Try it end to end: create and save a study at `/researcher/studies/new`, open `/tablet`, pick the study, run it
+with any Participant ID, then open the study's **View data** page (or the `export_rows` view in Studio).
+
+Without the `NEXT_PUBLIC_SUPABASE_*` values the tablet falls back to the mock study in
+`public/mock/studies.json` and the researcher pages run as a preview with saving disabled.
+
 ## Setting Up Your Developer Experience
 
 To get the most out of ESLint and Prettier, It is recommended to make the changes to you IDE:

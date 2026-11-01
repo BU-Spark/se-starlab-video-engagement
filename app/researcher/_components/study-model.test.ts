@@ -191,6 +191,16 @@ test('labels are required and files must be uploaded before rows are built', () 
   expect(() => toStudyRows(draft, STUDY_ID, {})).toThrow('Upload every selected file');
 });
 
+test('labels must be unique within a study (blocks.label is unique per study)', () => {
+  const draft = readyDraft();
+  draft.blocks[2].label = ' clip one.mp4 ';
+  const errors = validateStudy(draft);
+  expect(errors[draft.blocks[1].id + '.label']).toMatch('must be unique');
+  expect(errors[draft.blocks[2].id + '.label']).toMatch('must be unique');
+  draft.blocks[2].label = 'survey1';
+  expect(validateStudy(draft)[draft.blocks[2].id + '.label']).toBeUndefined();
+});
+
 test('fromStudyRows restores what toStudyRows saved', () => {
   const draft = readyDraft();
   draft.settings.randomization = 'groups';

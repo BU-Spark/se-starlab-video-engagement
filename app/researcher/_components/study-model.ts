@@ -221,8 +221,16 @@ export function validateStudy(draft: StudyDraft): ValidationErrors {
       errors.randomization = 'Give at least two blocks the same group name, or choose another randomization option.';
     }
   }
+  // blocks.label is unique per study (the export's Block column must identify one block).
+  const labelCounts = new Map<string, number>();
+  for (const block of draft.blocks) {
+    const label = block.label.trim();
+    if (label) labelCounts.set(label, (labelCounts.get(label) ?? 0) + 1);
+  }
   for (const block of draft.blocks) {
     if (!block.label.trim()) errors[block.id + '.label'] = 'Give this block a label for the data export.';
+    else if ((labelCounts.get(block.label.trim()) ?? 0) > 1)
+      errors[block.id + '.label'] = 'Another block already uses this label. Each label must be unique.';
     if (block.type === 'instructions' && !block.body.trim()) {
       errors[block.id + '.body'] = 'Add the instructions participants will see.';
     }
