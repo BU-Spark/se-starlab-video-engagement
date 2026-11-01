@@ -1,15 +1,25 @@
 /**
  * app/utils/supabase/client.ts
  *
- * Supabase client for Client Components (runs in the browser).
- * Uses the publishable key, so access is governed by Row Level Security.
- *
- * For example:
- * import { createClient } from '@/app/utils/supabase/client';
+ * One browser Supabase client for the whole app (researcher pages and tablet).
+ * Uses the publishable key only; returns null when the env vars are missing so both front ends
+ * can fall back (researcher: local preview, tablet: mock studies).
  */
 
-import { createBrowserClient } from '@supabase/ssr';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-export function createClient() {
-  return createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!);
+export const STUDY_MEDIA_BUCKET = process.env.NEXT_PUBLIC_SUPABASE_STUDY_BUCKET || 'study-media';
+
+let client: SupabaseClient | null | undefined;
+
+export function getSupabase(): SupabaseClient | null {
+  if (client !== undefined) return client;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  client = url && key ? createClient(url, key) : null;
+  return client;
+}
+
+export function isSupabaseConfigured(): boolean {
+  return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY);
 }

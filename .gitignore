@@ -12,6 +12,8 @@
 
 # testing
 /coverage
+/playwright-report/
+/test-results/
 
 # next.js
 /.next/
@@ -33,7 +35,6 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
-!.env.example
 
 # vercel
 .vercel
@@ -42,8 +43,20 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# python
+# Python bytecode and local caches
 __pycache__/
-*.pyc
-.venv/
+*.py[cod]
 .pytest_cache/
+.venv/
+
+# Supabase CLI local state and generated secrets (keep migrations/config tracked)
+/supabase/.temp/
+/supabase/.branches/
+
+# Local Docker environment files
+docker.env
+docker.env.*
+!docker.env.example
+
+# agents
+.claude

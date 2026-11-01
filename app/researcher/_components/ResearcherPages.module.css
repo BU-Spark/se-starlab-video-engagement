@@ -1,0 +1,198 @@
+/* Study list and data pages. Colour tokens come from .workspace in StudyBuilder.module.css. */
+.emptyPanel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  padding: 48px 24px;
+  background: var(--surface);
+  border: 1px dashed #dcd7de;
+  border-radius: 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.emptyPanel h2 {
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 600;
+}
+.tableCard {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 28px;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.table th {
+  text-align: left;
+  font-size: 10px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: #8a8790;
+  background: #fbfafb;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--line);
+}
+.table td {
+  padding: 14px 18px;
+  border-bottom: 1px solid #f0eef1;
+  vertical-align: middle;
+}
+.table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.primaryCell {
+  font-weight: 600;
+  color: var(--ink);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+a.primaryCell:hover {
+  color: var(--red);
+}
+.subtle {
+  color: var(--muted);
+  font-size: 12px;
+}
+.badge,
+.okBadge {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 10px;
+  padding: 2px 8px;
+  background: #fff4e0;
+  color: #8a5a00;
+}
+td > .badge:first-child,
+td > .okBadge:first-child {
+  margin-left: 0;
+}
+.okBadge {
+  background: #e9f6ee;
+  color: #267655;
+}
+.actions {
+  text-align: right;
+  white-space: nowrap;
+}
+.actionGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.linkButton,
+.dangerLink {
+  border: 0;
+  background: none;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 550;
+  color: #4c4653;
+  text-decoration: none;
+}
+.linkButton:not(:disabled):hover {
+  background: #f5f3f6;
+}
+.dangerLink {
+  color: var(--red);
+}
+.dangerLink:not(:disabled):hover {
+  background: #fff4f5;
+}
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.toolbar > div {
+  min-width: 300px;
+}
+.detailRow > td {
+  background: #fbfafb;
+  padding: 14px 18px 18px;
+}
+.innerScroll {
+  overflow-x: auto;
+}
+.innerTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.innerTable th,
+.innerTable td {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid #f0eef1;
+  white-space: nowrap;
+}
+.innerTable th {
+  font-size: 10px;
+  color: #8a8790;
+  font-weight: 600;
+}
+
+@media (max-width: 760px) {
+  .table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  .table,
+  .table tbody,
+  .table tr,
+  .table td {
+    display: block;
+    width: 100%;
+  }
+  .table tr {
+    padding: 12px 16px;
+    border-bottom: 1px solid #f0eef1;
+  }
+  .table td {
+    border: 0;
+    padding: 4px 0;
+  }
+  .table td[data-label]::before {
+    content: attr(data-label);
+    display: inline-block;
+    min-width: 92px;
+    font-size: 10px;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: #8a8790;
+  }
+  .actions {
+    text-align: left;
+    white-space: normal;
+  }
+  .actionGroup {
+    flex-wrap: wrap;
+    margin-left: -8px;
+  }
+  .detailRow > td {
+    padding: 10px 0;
+  }
+  .toolbar > div {
+    min-width: 0;
+    width: 100%;
+  }
+}

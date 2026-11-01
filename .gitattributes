@@ -1,0 +1,13 @@
+# Keep researcher source and CI files on LF, including Windows checkouts.
+/app/researcher/** text eol=lf
+/tests/researcher/*.ts text eol=lf
+/tests/researcher/fixtures/*.svg text eol=lf
+/tests/researcher/fixtures/*.txt text eol=lf
+/scripts/researcher-*.mjs text eol=lf
+/playwright.researcher.config.ts text eol=lf
+/.github/workflows/*.yml text eol=lf
+/.prettierrc text eol=lf
+/.gitattributes text eol=lf
+
+# Never normalize binary browser-test fixtures.
+/tests/researcher/fixtures/*.webm binary

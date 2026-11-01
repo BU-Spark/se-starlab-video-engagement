@@ -1,0 +1,112 @@
+name: Researcher CI
+
+on:
+  push:
+    paths:
+      - 'app/researcher/**'
+      - 'tests/researcher/**'
+      - 'app/layout.tsx'
+      - 'app/globals.css'
+      - 'app/components/ErrorBoundary/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.nvmrc'
+      - '.prettierrc'
+      - '.gitattributes'
+      - '.prettierignore'
+      - 'eslint.config.mjs'
+      - 'tsconfig.json'
+      - 'playwright.researcher.config.ts'
+      - 'scripts/researcher-*.mjs'
+      - '.github/workflows/researcher-ci.yml'
+  pull_request:
+    paths:
+      - 'app/researcher/**'
+      - 'tests/researcher/**'
+      - 'app/layout.tsx'
+      - 'app/globals.css'
+      - 'app/components/ErrorBoundary/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.nvmrc'
+      - '.prettierrc'
+      - '.gitattributes'
+      - '.prettierignore'
+      - 'eslint.config.mjs'
+      - 'tsconfig.json'
+      - 'playwright.researcher.config.ts'
+      - 'scripts/researcher-*.mjs'
+      - '.github/workflows/researcher-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: researcher-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  researcher:
+    name: Researcher lint, 3 browser checks and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      HUSKY: '0'
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: 1. Lint researcher code
+        id: lint
+        run: npm run researcher:lint
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: 2. Run 3 real browser tests
+        id: test
+        run: npm run researcher:test
+
+      # Default success() prevents building if lint, browser setup or a test fails.
+      - name: 3. Build researcher route
+        id: build
+        run: npm run researcher:build
+
+      - name: Upload browser test report
+        if: always() && steps.test.outcome != 'skipped'
+        uses: actions/upload-artifact@v4
+        with:
+          name: researcher-browser-report
+          path: |
+            playwright-report/researcher/
+            test-results/researcher/
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Write run summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Week 1 researcher frontend"
+            echo ""
+            echo "| Check | Result |"
+            echo "| --- | --- |"
+            echo "| ESLint | ${{ steps.lint.outcome }} |"
+            echo "| 3 real browser tests | ${{ steps.test.outcome }} |"
+            echo "| Production build | ${{ steps.build.outcome }} |"
+            echo ""
+            echo "Browser checks: editable settings; block editing/reordering/deletion; real local video playback."
+            echo "No mocked save, mocked browser events, backend services or coverage percentage gate."
+          } >> "$GITHUB_STEP_SUMMARY"

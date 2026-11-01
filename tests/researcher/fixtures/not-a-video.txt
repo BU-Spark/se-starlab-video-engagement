@@ -1,0 +1,2 @@
+This is a real text file used to check local video selection validation.
+
