@@ -17,7 +17,11 @@ create table public.studies (
   -- Display settings
   -- Show each video's progress bar at the top of the screen.
   show_video_bar boolean not null default true,
-  -- Text shown below each response button (thumbs down on the left, thumbs up on the right). Blank by default.
+  -- Storage paths of uploaded button images. Null means the default icon
+  -- (thumbs down on the left, thumbs up on the right).
+  left_button_icon_path text,
+  right_button_icon_path text,
+  -- Text shown below each response button. Blank by default.
   left_button_text text not null default '',
   right_button_text text not null default '',
 
