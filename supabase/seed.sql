@@ -25,3 +25,7 @@ create policy "demo anon upload media" on storage.objects for insert to anon wit
 
 drop policy if exists "demo anon delete media" on storage.objects;
 create policy "demo anon delete media" on storage.objects for delete to anon using (bucket_id = 'study-media');
+
+-- Lets the researcher data page play participant recordings without a login (local only).
+drop policy if exists "demo anon read recordings" on storage.objects;
+create policy "demo anon read recordings" on storage.objects for select to anon using (bucket_id = 'run-recordings');

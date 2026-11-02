@@ -6,16 +6,11 @@
     "display": {
       "videoBar": true,
       "leftText": "Dislike",
-      "rightText": "Like",
-      "shareOptions": ["Copy link", "Messages", "Email", "Repost", "More"]
+      "rightText": "Like"
     },
     "controls": {
       "swipeUp": true,
       "responseButtons": true,
-      "commentButton": true,
-      "saveButton": true,
-      "shareButton": true,
-      "pauseOnShare": false,
       "pausing": true,
       "audioRecord": false,
       "cameraRecord": false
@@ -34,23 +29,7 @@
         "videoUrl": "/mock/videos/sample1.mp4",
         "fileName": "sample1.mp4",
         "title": "Sample video one",
-        "description": "A short description of the first clip.\nCaptions can span more than one line.",
-        "comments": [
-          {
-            "author": "sam",
-            "text": "This is so relaxing to watch",
-            "likes": 128
-          },
-          {
-            "author": "jordan_k",
-            "text": "Where was this filmed?",
-            "likes": 14
-          },
-          {
-            "author": "alex",
-            "text": "Watched it three times already"
-          }
-        ]
+        "description": "A short description of the first clip.\nCaptions can span more than one line."
       },
       {
         "id": "b3",
@@ -65,14 +44,7 @@
         "label": "video2",
         "videoUrl": "/mock/videos/sample2.mp4",
         "fileName": "sample2.mp4",
-        "title": "Sample video two",
-        "comments": [
-          {
-            "author": "riley",
-            "text": "Love this one",
-            "likes": 3
-          }
-        ]
+        "title": "Sample video two"
       },
       {
         "id": "b5",

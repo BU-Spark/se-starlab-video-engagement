@@ -24,13 +24,6 @@ export interface StudyRow {
   right_button_icon_path: string | null;
   allow_swipe_back: boolean;
   allow_pausing: boolean;
-  comment_button: boolean;
-  save_button: boolean;
-  share_button: boolean;
-  /** Pause the video while the share or comments panel is open. */
-  pause_on_share: boolean;
-  /** Share panel options in display order; null means the tablet's defaults. */
-  share_options: string[] | null;
   audio_record: boolean;
   camera_record: boolean;
   created_at: string;
@@ -38,13 +31,6 @@ export interface StudyRow {
 }
 
 export type StudyInsert = Omit<StudyRow, 'created_at' | 'updated_at'>;
-
-/** One researcher-written comment shown in a video's comments panel (blocks.comments). */
-export interface CommentJson {
-  author: string;
-  text: string;
-  likes?: number;
-}
 
 /** public.blocks */
 export interface BlockRow {
@@ -65,8 +51,6 @@ export interface BlockRow {
   title: string | null;
   /** Caption body (video blocks only); null hides it. */
   description: string | null;
-  /** Comments panel content (video blocks only); null means "No comments yet". */
-  comments: CommentJson[] | null;
   /** Survey question (survey blocks only). */
   prompt: string | null;
   /** Survey response bubbles in display order (survey blocks only). */
@@ -85,7 +69,14 @@ export interface RunRow {
   /** null while the participant has not finished the last block. */
   completed_at: string | null;
   synced_at: string;
+  /** Object path in the run-recordings bucket; null when the study does not record. */
+  recording_path: string | null;
+  /** When the recorder started; set exactly when recording_path is. */
+  recording_started_at: string | null;
 }
+
+/** Private Storage bucket for participant audio/camera recordings (tablet may only upload). */
+export const RUN_RECORDINGS_BUCKET = 'run-recordings';
 
 /** public.block_views — one viewing of a block; swiping back creates another row. */
 export interface BlockViewRow {
@@ -96,19 +87,23 @@ export interface BlockViewRow {
   stimulus: string;
   started_at: string;
   watch_time_ms: number;
-  button_press: string | null;
-  button_time_ms: number | null;
+  /** Video blocks: 'Like' or 'Dislike' (first press); null if neither was pressed. */
+  like_dislike: 'Like' | 'Dislike' | null;
+  /** ms from block start to the Like/Dislike press. */
+  like_dislike_time_ms: number | null;
+  /** Survey blocks: the option picked (last choice wins); null if none. */
+  survey_answer: string | null;
+  /** ms from block start to the first option touch. */
+  survey_time_ms: number | null;
+  /** When the video started playing; null for other blocks or if it never played. */
   video_start_at: string | null;
+  /** When the participant left the playing video (videos loop). */
   video_end_at: string | null;
   swiped_back: boolean;
-  /** ms from block start to the first share tap; null if never tapped. */
-  share_time_ms: number | null;
-  /** Share option picked, "Cancel", or null if the sheet was never opened. */
-  share_choice: string | null;
-  comment_time_ms: number | null;
-  save_time_ms: number | null;
-  /** Whether the video was saved when the participant left it. */
-  saved: boolean;
+  /** Participant tap-to-pause count. */
+  pause_count: number;
+  /** Total ms paused by those taps. */
+  paused_ms: number;
 }
 
 /** Argument of public.submit_run(run jsonb): one run with its views, written atomically. */
@@ -118,5 +113,7 @@ export interface SubmitRunPayload {
   participant_id: string;
   started_at: string;
   completed_at: string | null;
-  views: Omit<BlockViewRow, 'id' | 'run_id' | 'video_start_at' | 'video_end_at'>[];
+  recording_path: string | null;
+  recording_started_at: string | null;
+  views: Omit<BlockViewRow, 'id' | 'run_id'>[];
 }

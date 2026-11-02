@@ -152,24 +152,6 @@
   animation: pop 0.35s cubic-bezier(0.3, 1.6, 0.5, 1);
 }
 
-.sideButton {
-  padding: 0;
-  border: none;
-  background: none;
-  color: #fff;
-  cursor: pointer;
-}
-
-.saved .icon {
-  color: #facd00;
-  animation: pop 0.35s cubic-bezier(0.3, 1.6, 0.5, 1);
-}
-
-.sideIcon {
-  width: 2.6rem;
-  height: 2.6rem;
-}
-
 .dimmed {
   opacity: 0.4;
 }

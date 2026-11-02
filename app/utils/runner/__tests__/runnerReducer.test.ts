@@ -30,11 +30,12 @@ describe('runnerReducer', () => {
     const state = run([
       { type: 'start', now: 0, iso },
       { type: 'next', now: 1000, iso },
-      { type: 'button', side: 'Left', now: 5200 },
-      { type: 'button', side: 'Right', now: 6000 },
+      { type: 'button', choice: 'Dislike', now: 5200 },
+      { type: 'button', choice: 'Like', now: 6000 },
       { type: 'next', now: 7000, iso },
     ]);
-    expect(state.rows[1]).toMatchObject({ buttonPress: 'Left', buttonTimeMs: 4200 });
+    expect(state.rows[1]).toMatchObject({ likeDislike: 'Dislike', likeDislikeTimeMs: 4200 });
+    expect(state.rows[1]).toMatchObject({ surveyAnswer: null, surveyTimeMs: null });
   });
 
   it('lets survey answers switch but keeps the first-touch time', () => {
@@ -46,7 +47,8 @@ describe('runnerReducer', () => {
       { type: 'bubble', option: 'Neutral', now: 4000 },
       { type: 'next', now: 5000, iso },
     ]);
-    expect(state.rows[2]).toMatchObject({ buttonPress: 'Neutral', buttonTimeMs: 1000, watchTimeMs: 4900 });
+    expect(state.rows[2]).toMatchObject({ surveyAnswer: 'Neutral', surveyTimeMs: 1000, watchTimeMs: 4900 });
+    expect(state.rows[2]).toMatchObject({ likeDislike: null, likeDislikeTimeMs: null });
   });
 
   it('marks swipe-up rows and creates a new row for the return viewing', () => {
@@ -87,44 +89,41 @@ describe('runnerReducer', () => {
     expect(runnerReducer(initial, { type: 'next', now: 5, iso })).toBe(initial);
   });
 
-  it('records the first share tap time and the option picked', () => {
+  it('records when the video first played and when the participant left it', () => {
+    const state = run([
+      { type: 'start', now: 0, iso },
+      { type: 'next', now: 1000, iso: 'T1' },
+      { type: 'videoPlaying', blockId: 'b2', iso: 'T-play' },
+      { type: 'videoPlaying', blockId: 'b2', iso: 'T-play-again' }, // resume or loop: ignored
+      { type: 'next', now: 9000, iso: 'T-leave' },
+      { type: 'next', now: 10000, iso: 'T-end' },
+    ]);
+    expect(state.rows[0]).toMatchObject({ videoStartAtIso: null, videoEndAtIso: null });
+    expect(state.rows[1]).toMatchObject({ videoStartAtIso: 'T-play', videoEndAtIso: 'T-leave' });
+    expect(state.rows[2]).toMatchObject({ videoStartAtIso: null, videoEndAtIso: null });
+  });
+
+  it('ignores video events for a block that is no longer shown', () => {
+    const state = run([
+      { type: 'start', now: 0, iso },
+      { type: 'videoPlaying', blockId: 'b2', iso: 'late' },
+      { type: 'pause', blockId: 'b2', now: 100 },
+      { type: 'next', now: 1000, iso },
+    ]);
+    expect(state.rows[0]).toMatchObject({ videoStartAtIso: null, pauseCount: 0, pausedMs: 0 });
+  });
+
+  it('counts tap pauses and their total time, including one still running when leaving', () => {
     const state = run([
       { type: 'start', now: 0, iso },
       { type: 'next', now: 1000, iso },
-      { type: 'shareOpen', now: 3000 },
-      { type: 'shareChoice', choice: 'Email', cancel: false },
-      { type: 'shareOpen', now: 6000 },
-      { type: 'shareChoice', choice: 'Cancel', cancel: true },
-      { type: 'next', now: 8000, iso },
+      { type: 'pause', blockId: 'b2', now: 2000 },
+      { type: 'pause', blockId: 'b2', now: 2100 }, // already paused
+      { type: 'resume', blockId: 'b2', now: 2600 },
+      { type: 'resume', blockId: 'b2', now: 2700 }, // not paused
+      { type: 'pause', blockId: 'b2', now: 4000 },
+      { type: 'next', now: 4300, iso },
     ]);
-    expect(state.rows[1]).toMatchObject({ shareTimeMs: 2000, shareChoice: 'Email' });
-    expect(state.rows[0]).toMatchObject({ shareTimeMs: null, shareChoice: null });
-  });
-
-  it('records Cancel when the share sheet is only dismissed', () => {
-    const state = run([
-      { type: 'start', now: 0, iso },
-      { type: 'shareOpen', now: 500 },
-      { type: 'shareChoice', choice: 'Cancel', cancel: true },
-      { type: 'next', now: 1000, iso },
-    ]);
-    expect(state.rows[0]).toMatchObject({ shareTimeMs: 500, shareChoice: 'Cancel' });
-  });
-
-  it('records the first comment tap and the save state when leaving', () => {
-    const state = run([
-      { type: 'start', now: 0, iso },
-      { type: 'commentOpen', now: 700 },
-      { type: 'commentOpen', now: 900 },
-      { type: 'save', now: 1200 },
-      { type: 'save', now: 1500 },
-      { type: 'save', now: 1800 },
-      { type: 'next', now: 2000, iso },
-      { type: 'save', now: 2500 },
-      { type: 'save', now: 2600 },
-      { type: 'next', now: 3000, iso },
-    ]);
-    expect(state.rows[0]).toMatchObject({ commentTimeMs: 700, saveTimeMs: 1200, saved: 1 });
-    expect(state.rows[1]).toMatchObject({ commentTimeMs: null, saveTimeMs: 500, saved: 0 });
+    expect(state.rows[1]).toMatchObject({ pauseCount: 2, pausedMs: 900 });
   });
 });

@@ -1,5 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { BlockRow, BlockViewRow, RunRow, StudyRow } from '@/app/utils/supabase/database.types';
+import {
+  RUN_RECORDINGS_BUCKET,
+  type BlockRow,
+  type BlockViewRow,
+  type RunRow,
+  type StudyRow,
+} from '@/app/utils/supabase/database.types';
 import { getSupabase, STUDY_MEDIA_BUCKET } from '@/app/utils/supabase/client';
 import {
   copyName,
@@ -113,6 +119,13 @@ export async function signPaths(supabase: SupabaseClient, paths: string[]): Prom
   const urls: Record<string, string> = {};
   for (const item of data) if (item.path && item.signedUrl) urls[item.path] = item.signedUrl;
   return urls;
+}
+
+/** A short-lived link to a participant recording (private run-recordings bucket). */
+export async function recordingUrl(supabase: SupabaseClient, path: string): Promise<string> {
+  const { data, error } = await supabase.storage.from(RUN_RECORDINGS_BUCKET).createSignedUrl(path, 60 * 60);
+  if (error || !data) throw new SaveStudyError('Could not open the recording: ' + (error?.message ?? 'no link'));
+  return data.signedUrl;
 }
 
 export async function listRuns(supabase: SupabaseClient, studyId: string): Promise<RunRow[]> {

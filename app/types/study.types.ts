@@ -16,8 +16,6 @@ export interface StudyDisplaySettings {
   leftText: string;
   /** Text shown below the right response button (default blank) */
   rightText: string;
-  /** Share targets listed when the share button is tapped. Defaults to Copy link, Messages, Email, Repost, More. */
-  shareOptions?: string[];
 }
 
 export interface StudyControlSettings {
@@ -25,26 +23,11 @@ export interface StudyControlSettings {
   swipeUp: boolean;
   /** Show the left/right response buttons over videos */
   responseButtons: boolean;
-  /**
-   * Extra TikTok/Reels-style buttons on the right-hand rail, each switched on or off per study.
-   * Omitted counts as off, so older studies keep working.
-   */
-  /** Comment opens a panel with the video's `comments`; the first tap time is recorded */
-  commentButton?: boolean;
-  /** Save toggles on/off like TikTok; the first tap time and the final saved state are recorded */
-  saveButton?: boolean;
-  /** Share opens a share sheet; the tap time and the option picked are recorded */
-  shareButton?: boolean;
-  /**
-   * Pause the video while the share or comments panel is open.
-   * Off by default: it keeps playing, as in Shorts/Reels. (Named before comments opened a panel too.)
-   */
-  pauseOnShare?: boolean;
   /** Allow tapping a video to pause/resume */
   pausing: boolean;
-  /** Low priority, not implemented yet */
+  /** Record the microphone for the whole session (uploaded with the run) */
   audioRecord: boolean;
-  /** Low priority, not implemented yet */
+  /** Record the front camera for the whole session (one file with the audio when both are on) */
   cameraRecord: boolean;
 }
 
@@ -64,14 +47,6 @@ export interface InstructionsBlock extends BaseBlock {
   text: string;
 }
 
-/** A comment the researcher writes for a video; shown in the comments panel, read-only */
-export interface VideoComment {
-  author: string;
-  text: string;
-  /** Like count shown next to the comment; omit to hide */
-  likes?: number;
-}
-
 export interface VideoBlock extends BaseBlock {
   type: 'video';
   videoUrl: string;
@@ -83,8 +58,6 @@ export interface VideoBlock extends BaseBlock {
   title?: string;
   /** Longer caption text under the title. Line breaks are kept; long text is clamped to a few lines. */
   description?: string;
-  /** Comments listed when the comment button is tapped; omit for "No comments yet" */
-  comments?: VideoComment[];
 }
 
 export interface SurveyBlock extends BaseBlock {
@@ -105,7 +78,8 @@ export interface Study {
   blocks: Block[];
 }
 
-export type ButtonSide = 'Left' | 'Right';
+/** The video response buttons: Like is the top (thumbs-up) button, Dislike the bottom one. */
+export type LikeDislike = 'Like' | 'Dislike';
 
 /** One row per viewing of a block. Returning to a block creates a new row. */
 export interface BlockResult {
@@ -118,20 +92,32 @@ export interface BlockResult {
   watchTimeMs: number;
   /** 1 if the participant left this block by swiping back to the previous one */
   swipedUp: 0 | 1;
-  /** Left/Right for videos, the chosen option text for surveys */
-  buttonPress: string | null;
-  /** Milliseconds from block start to the button press (videos) or first bubble touch (surveys) */
-  buttonTimeMs: number | null;
-  /** Milliseconds from block start to the first tap on the share button, or null if never tapped */
-  shareTimeMs: number | null;
-  /** Share option picked, "Cancel" if the sheet was only dismissed, or null if never opened */
-  shareChoice: string | null;
-  /** Milliseconds from block start to the first tap on the comment button, or null if never tapped */
-  commentTimeMs: number | null;
-  /** Milliseconds from block start to the first tap on the save button, or null if never tapped */
-  saveTimeMs: number | null;
-  /** 1 if the video was saved when the participant left it */
-  saved: 0 | 1;
+  /** Video blocks: Like or Dislike (the first press only); null if neither was pressed */
+  likeDislike: LikeDislike | null;
+  /** Milliseconds from block start to the Like/Dislike press */
+  likeDislikeTimeMs: number | null;
+  /** Survey blocks: the option text picked (the last choice wins); null if none */
+  surveyAnswer: string | null;
+  /** Milliseconds from block start to the first touch on an option */
+  surveyTimeMs: number | null;
+  /** System clock time the video actually started playing (first `playing` event); null for other blocks */
+  videoStartAtIso: string | null;
+  /**
+   * System clock time the participant left the video. Videos loop, so leaving is the end of watching;
+   * null when the video never started playing.
+   */
+  videoEndAtIso: string | null;
+  /** Times the participant tapped to pause this video */
+  pauseCount: number;
+  /** Total ms the video stayed paused by those taps */
+  pausedMs: number;
+  startedAtIso: string;
+}
+
+/** The session's audio/camera recording; the file itself is kept on the tablet until it is uploaded. */
+export interface RunRecording {
+  mimeType: string;
+  /** System clock time the recorder started, to line the recording up with the block timestamps */
   startedAtIso: string;
 }
 
@@ -144,4 +130,6 @@ export interface RunResult {
   /** Block ids in the order this participant saw them (differs per run when randomized) */
   blockOrder: string[];
   rows: BlockResult[];
+  /** Present when the study records audio or camera and the recorder ran */
+  recording?: RunRecording;
 }

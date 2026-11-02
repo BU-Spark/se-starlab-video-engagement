@@ -193,7 +193,7 @@ A study is a list of **blocks**, shown in order (unless randomized). There are t
 | `type`         | What it shows                    | Fields                                                              |
 | -------------- | -------------------------------- | ------------------------------------------------------------------- |
 | `instructions` | A text screen                    | `text`                                                              |
-| `video`        | A full-screen looping video      | `videoUrl`, `fileName`, optional `title`, `description`, `comments` |
+| `video`        | A full-screen looping video      | `videoUrl`, `fileName`, optional `title`, `description`           |
 | `survey`       | A question with tappable options | `prompt`, `options` (list of answer strings)                        |
 
 Every block also has an `id` (unique within the study), a `label` (the name used in the results, e.g. `"survey1"`), and an optional `randomGroup` (see below).
@@ -224,8 +224,7 @@ A minimal study:
       "videoUrl": "https://example.com/videos/cat.mp4",
       "fileName": "cat.mp4",
       "title": "My cat",
-      "description": "Caption text under the title",
-      "comments": [{ "author": "sam", "text": "So cute", "likes": 12 }]
+      "description": "Caption text under the title"
     },
     { "id": "b3", "type": "survey", "label": "survey1", "prompt": "Did you enjoy it?", "options": ["Yes", "No"] }
   ]
@@ -236,27 +235,21 @@ A minimal study:
 
 #### Turning features on and off
 
-The newer settings (`shareOptions`, the comment / save / share buttons, `pauseOnShare`, `randomGroup`, captions and comments) can be left out entirely: left out means **off**, or the default shown, so older studies keep working. The rest are required.
+The newer settings (`randomGroup` and captions) can be left out entirely: left out means **off**, or the default shown, so older studies keep working. The rest are required.
 
 | Setting                          | Where      | What it does                                                                                         |
 | -------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------- |
 | `display.videoBar`               | `display`  | Thin progress bar along the bottom of each video                                                     |
 | `display.leftText` / `rightText` | `display`  | Labels under the dislike / like buttons (`""` for none)                                              |
 | `display.leftIcon` / `rightIcon` | `display`  | Image URLs to replace the thumbs-down / thumbs-up icons                                              |
-| `display.shareOptions`           | `display`  | Options in the share panel. Default: Copy link, Messages, Email, Repost, More                        |
 | `controls.responseButtons`       | `controls` | Show the like / dislike buttons (the main recorded response)                                         |
-| `controls.commentButton`         | `controls` | Show the comment button; it opens a panel listing that video's `comments`                            |
-| `controls.saveButton`            | `controls` | Show the save button; it toggles on/off like TikTok                                                  |
-| `controls.shareButton`           | `controls` | Show the share button; it opens the share panel                                                      |
-| `controls.pauseOnShare`          | `controls` | Pause the video while the share or comments panel is open. Default: keeps playing, like Shorts/Reels |
-| `controls.pausing`               | `controls` | Tapping the video pauses / resumes it                                                                |
+| `controls.pausing`               | `controls` | Tapping the video pauses / resumes it; pause count and paused time are recorded                      |
 | `controls.swipeUp`               | `controls` | Participants can swipe back to the previous block                                                    |
 | `randomized`                     | study      | Shuffle every block for each participant                                                             |
 | `randomGroup`                    | block      | Blocks with the same `randomGroup` name are shuffled among themselves; all other blocks stay put     |
 | video `title` / `description`    | block      | Caption in the bottom-left of the video. Blank hides it                                              |
-| video `comments`                 | block      | Read-only comments shown when the comment button is tapped: `{ author, text, likes? }`               |
 
-Comments, captions and share options are just text. Nothing is actually posted or shared.
+Captions are just text. There are no comment, share or save buttons: the only responses on a video are like / dislike, tap-to-pause and swiping.
 
 ### Connecting the researcher front end
 
@@ -271,7 +264,7 @@ The tablet talks to the backend through one interface, `StudyRepository` in `app
 interface StudyRepository {
   listStudies(): Promise<{ id: string; name: string }[]>; // the "Please Select Study" list
   getStudy(id: string): Promise<Study>; // the full study, fetched when it's selected
-  submitRun(run: RunResult): Promise<void>; // one finished session; reject on failure so it is retried
+  submitRun(run: RunResult, recording?: Blob | null): Promise<void>; // one finished session (+ its recording); reject on failure so it is retried
 }
 ```
 
@@ -335,16 +328,18 @@ When a participant finishes, the tablet calls `submitRun(run)` with a `RunResult
       "stimulus": "cat.mp4", // video fileName, or the block label
       "watchTimeMs": 8123,
       "swipedUp": 0, // 1 if they left by swiping back
-      "buttonPress": "Right", // Left/Right for videos, the chosen option for surveys
-      "buttonTimeMs": 2410,
-      "shareTimeMs": 3900, // first share tap, null if never
-      "shareChoice": "Copy link", // option picked, "Cancel", or null
-      "commentTimeMs": null, // first comment tap
-      "saveTimeMs": 5100, // first save tap
-      "saved": 1, // saved when they left the video
+      "likeDislike": "Like", // videos: "Like" (top button) or "Dislike" (bottom button); null if neither
+      "likeDislikeTimeMs": 2410,
+      "surveyAnswer": null, // surveys: the option picked; null on other blocks
+      "surveyTimeMs": null,
+      "videoStartAtIso": "2026-10-26T15:00:05.112Z", // first frame played; null for non-video blocks
+      "videoEndAtIso": "2026-10-26T15:00:13.123Z", // when they left the video (videos loop)
+      "pauseCount": 1, // tap-to-pause count
+      "pausedMs": 1450, // total time paused by those taps
       "startedAtIso": "2026-10-26T15:00:05.000Z",
     },
   ],
+  "recording": { "mimeType": "video/webm", "startedAtIso": "2026-10-26T15:00:04.950Z" }, // only when the study records
 }
 ```
 
@@ -367,13 +362,14 @@ The CSV follows the design document's layout, with the side-button columns added
 | `Stimuli`      | `stimulus`      |                                                    |
 | `Watch_time`   | `watchTimeMs`   | e.g. `8123 ms`                                     |
 | `Swipe_up?`    | `swipedUp`      | `0` / `1`                                          |
-| `Button_press` | `buttonPress`   | `0` if none                                        |
-| `Button_time`  | `buttonTimeMs`  | `0` if none                                        |
-| `Share_time`   | `shareTimeMs`   | `0` if none                                        |
-| `Share_choice` | `shareChoice`   | `0` if none                                        |
-| `Comment_time` | `commentTimeMs` | `0` if none                                        |
-| `Save_time`    | `saveTimeMs`    | `0` if none                                        |
-| `Saved`        | `saved`         | `0` / `1`                                          |
+| `Like_dislike` | `likeDislike`   | `Like` / `Dislike`, `0` if none                    |
+| `Like_dislike_time` | `likeDislikeTimeMs` | `0` if none                               |
+| `Survey_answer` | `surveyAnswer` | The option picked, `0` if none                     |
+| `Survey_time`  | `surveyTimeMs`  | `0` if none                                        |
+| `Video_start_timestamp` | `videoStartAtIso` | ISO time, `0` if none                     |
+| `Video_end_timestamp`   | `videoEndAtIso`   | ISO time, `0` if none                     |
+| `Pause_count`  | `pauseCount`    |                                                    |
+| `Paused_time`  | `pausedMs`      | e.g. `1450 ms`                                     |
 
 If the backend is in another language (e.g. Python), store the JSON and rebuild the CSV from this table; it is a straight field-by-field mapping.
 

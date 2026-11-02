@@ -15,6 +15,9 @@ export interface StudySummary {
 export interface StudyRepository {
   listStudies(): Promise<StudySummary[]>;
   getStudy(id: string): Promise<Study>;
-  /** Uploads one completed session. Rejects if the upload failed so the caller can queue it. */
-  submitRun(run: RunResult): Promise<void>;
+  /**
+   * Uploads one completed session, with its audio/camera recording when there is one.
+   * Rejects if the upload failed so the caller can queue it and retry with the same arguments.
+   */
+  submitRun(run: RunResult, recording?: Blob | null): Promise<void>;
 }

@@ -4,13 +4,21 @@
  * StudyRepository backed by the Supabase project the researcher website writes to.
  * Reads studies/blocks and signs media URLs; uploads runs through the submit_run database function,
  * which stores a run and its block views in one transaction and ignores retries of the same run.
+ * A session recording is uploaded to the run-recordings bucket first, so the run can point at it.
  */
 
 import type { RunResult, Study } from '@/app/types';
 import { getSupabase, STUDY_MEDIA_BUCKET } from '@/app/utils/supabase/client';
-import type { BlockRow, StudyRow } from '@/app/utils/supabase/database.types';
+import { RUN_RECORDINGS_BUCKET, type BlockRow, type StudyRow } from '@/app/utils/supabase/database.types';
 import type { StudyRepository, StudySummary } from './StudyRepository';
-import { mediaPathsOf, rowsToStudy, runIdFor, toSubmitRunPayload, type MediaUrls } from './supabaseMapping';
+import {
+  mediaPathsOf,
+  recordingPathFor,
+  rowsToStudy,
+  runIdFor,
+  toSubmitRunPayload,
+  type MediaUrls,
+} from './supabaseMapping';
 
 /** Long enough to preload and run a session; files are downloaded before the participant starts. */
 const SIGNED_URL_SECONDS = 2 * 60 * 60;
@@ -51,8 +59,19 @@ export const supabaseRepository: StudyRepository = {
     return rowsToStudy(row, blockRows, await signedUrls(mediaPathsOf(row, blockRows)));
   },
 
-  async submitRun(run: RunResult): Promise<void> {
-    const payload = toSubmitRunPayload(run, runIdFor(run));
+  async submitRun(run: RunResult, recording?: Blob | null): Promise<void> {
+    const runId = runIdFor(run);
+    let recordingPath: string | null = null;
+    if (run.recording && recording) {
+      recordingPath = recordingPathFor(run.studyId, runId, run.recording.mimeType);
+      const { error } = await client()
+        .storage.from(RUN_RECORDINGS_BUCKET)
+        .upload(recordingPath, recording, { contentType: run.recording.mimeType, upsert: false });
+      // The tablet may not overwrite or read recordings; "already exists" means an earlier attempt uploaded it.
+      const alreadyUploaded = error && /exists|duplicate/i.test(error.message);
+      if (error && !alreadyUploaded) throw new Error(`Recording upload failed: ${error.message}`);
+    }
+    const payload = toSubmitRunPayload(run, runId, recordingPath);
     const { error } = await client().rpc('submit_run', { run: payload });
     if (error) throw new Error(`Upload failed: ${error.message}`);
   },

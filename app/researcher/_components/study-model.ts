@@ -1,11 +1,4 @@
-import type {
-  BlockInsert,
-  BlockRow,
-  BlockTypeValue,
-  CommentJson,
-  StudyInsert,
-  StudyRow,
-} from '@/app/utils/supabase/database.types';
+import type { BlockInsert, BlockRow, BlockTypeValue, StudyInsert, StudyRow } from '@/app/utils/supabase/database.types';
 
 export type BlockType = BlockTypeValue;
 
@@ -17,9 +10,6 @@ export type BlockType = BlockTypeValue;
  * - groups: randomized = false, researcher-chosen groups → shuffled within each group, others fixed
  */
 export type RandomizationMode = 'off' | 'all' | 'groups';
-
-/** The tablet's share panel default (StudyDisplaySettings.shareOptions). */
-export const DEFAULT_SHARE_OPTIONS = ['Copy link', 'Messages', 'Email', 'Repost', 'More'];
 
 /** A file chosen in this browser session; uploaded to Storage on save. */
 export interface LocalMedia {
@@ -46,7 +36,7 @@ export function mediaName(media: Media): string {
   return media.kind === 'local' ? media.file.name : media.name;
 }
 
-/** An editable list entry (share options, survey options); the id is a local React key only. */
+/** An editable list entry (survey options); the id is a local React key only. */
 export interface TextItem {
   id: string;
   label: string;
@@ -65,11 +55,6 @@ export interface StudySettings {
   right_button_icon: Media | null;
   allow_swipe_back: boolean;
   allow_pausing: boolean;
-  comment_button: boolean;
-  save_button: boolean;
-  share_button: boolean;
-  pause_on_share: boolean;
-  share_options: TextItem[];
   audio_record: boolean;
   camera_record: boolean;
 }
@@ -82,14 +67,6 @@ export const buttonKeys = {
 
 export type SurveyOption = TextItem;
 
-/** A researcher-written comment shown in the tablet's comments panel. `likes` is the raw input text. */
-export interface DraftComment {
-  id: string;
-  author: string;
-  text: string;
-  likes: string;
-}
-
 interface BlockBase {
   id: string;
   /** blocks.label — the stimulus name that appears in exported data. */
@@ -101,7 +78,7 @@ interface BlockBase {
 export type DraftBlock = BlockBase &
   (
     | { type: 'instructions'; body: string }
-    | { type: 'video'; media: Media | null; title: string; description: string; comments: DraftComment[] }
+    | { type: 'video'; media: Media | null; title: string; description: string }
     | { type: 'survey'; prompt: string; options: SurveyOption[] }
   );
 
@@ -137,12 +114,8 @@ export function createStudy(): StudyDraft {
       left_button_icon: null,
       right_button_icon: null,
       allow_swipe_back: false,
-      allow_pausing: false,
-      comment_button: false,
-      save_button: false,
-      share_button: false,
-      pause_on_share: false,
-      share_options: textItems(DEFAULT_SHARE_OPTIONS),
+      // Participants can tap the video to pause it unless the researcher turns this off.
+      allow_pausing: true,
       audio_record: false,
       camera_record: false,
     },
@@ -166,14 +139,10 @@ export function isGeneratedLabel(label: string, type: BlockType): boolean {
   return !label.trim() || new RegExp('^' + labelPrefix[type] + '\\d+$').test(label);
 }
 
-export function createComment(): DraftComment {
-  return { id: createId(), author: '', text: '', likes: '' };
-}
-
 export function createBlock(type: BlockType, existing: DraftBlock[] = []): DraftBlock {
   const base = { id: createId(), label: defaultLabel(type, existing), random_group: '' };
   if (type === 'instructions') return { ...base, type, body: '' };
-  if (type === 'video') return { ...base, type, media: null, title: '', description: '', comments: [] };
+  if (type === 'video') return { ...base, type, media: null, title: '', description: '' };
   return {
     ...base,
     type,
@@ -191,8 +160,6 @@ export function moveBlock(blocks: DraftBlock[], id: string, direction: -1 | 1): 
   return next;
 }
 
-const LIKES_PATTERN = /^\d{1,9}$/;
-
 export function validateStudy(draft: StudyDraft): ValidationErrors {
   const errors: ValidationErrors = {};
   const s = draft.settings;
@@ -203,12 +170,6 @@ export function validateStudy(draft: StudyDraft): ValidationErrors {
     if (icon?.kind === 'local' && icon.status !== 'ready') {
       errors[side + '.icon'] =
         icon.status === 'error' ? 'Replace or remove this unreadable image.' : 'Wait for the image preview to load.';
-    }
-  }
-  if (s.share_button) {
-    if (!s.share_options.length) errors.share_options = 'Add at least one share option.';
-    for (const option of s.share_options) {
-      if (!option.label.trim()) errors[option.id + '.label'] = 'Option text cannot be empty.';
     }
   }
   if (s.randomization === 'groups') {
@@ -241,13 +202,6 @@ export function validateStudy(draft: StudyDraft): ValidationErrors {
           block.media.status === 'error'
             ? 'This video cannot be played. Choose another file.'
             : 'Wait for the video preview to load.';
-      for (const comment of block.comments) {
-        if (!comment.author.trim()) errors[comment.id + '.author'] = 'Enter a name.';
-        if (!comment.text.trim()) errors[comment.id + '.text'] = 'Enter the comment text.';
-        if (comment.likes.trim() && !LIKES_PATTERN.test(comment.likes.trim())) {
-          errors[comment.id + '.likes'] = 'Use a whole number, or leave blank to hide likes.';
-        }
-      }
     }
     if (block.type === 'survey') {
       if (!block.prompt.trim()) errors[block.id + '.prompt'] = 'Enter a survey question.';
@@ -300,15 +254,6 @@ export function plannedUploads(draft: StudyDraft, studyId: string): PendingUploa
 
 const blankToNull = (value: string) => value.trim() || null;
 
-function commentsToJson(comments: DraftComment[]): CommentJson[] | null {
-  if (!comments.length) return null;
-  return comments.map((comment) => {
-    const json: CommentJson = { author: comment.author.trim(), text: comment.text.trim() };
-    if (comment.likes.trim()) json.likes = Number(comment.likes.trim());
-    return json;
-  });
-}
-
 /**
  * Maps the editor state onto public.studies / public.blocks rows.
  * `uploadedPaths` maps LocalMedia.id → Storage object path and must cover every local file
@@ -327,8 +272,6 @@ export function toStudyRows(
     return path;
   };
   const s = draft.settings;
-  // Kept even while the share button is off, so switching it back on restores the list.
-  const shareOptions = s.share_options.map((option) => option.label.trim()).filter(Boolean);
   const study: StudyInsert = {
     id: studyId,
     name: draft.name.trim(),
@@ -341,11 +284,6 @@ export function toStudyRows(
     right_button_icon_path: s.right_button_icon ? pathOf(s.right_button_icon) : null,
     allow_swipe_back: s.allow_swipe_back,
     allow_pausing: s.allow_pausing,
-    comment_button: s.comment_button,
-    save_button: s.save_button,
-    share_button: s.share_button,
-    pause_on_share: s.pause_on_share,
-    share_options: shareOptions.length ? shareOptions : null,
     audio_record: s.audio_record,
     camera_record: s.camera_record,
   };
@@ -363,7 +301,6 @@ export function toStudyRows(
       file_name: null,
       title: null,
       description: null,
-      comments: null,
       prompt: null,
       options: null,
     };
@@ -373,7 +310,6 @@ export function toStudyRows(
       row.file_name = mediaName(block.media!);
       row.title = blankToNull(block.title);
       row.description = blankToNull(block.description);
-      row.comments = commentsToJson(block.comments);
     }
     if (block.type === 'survey') {
       row.prompt = block.prompt.trim();
@@ -486,11 +422,6 @@ export function fromStudyRows(
       right_button_icon: stored(study.right_button_icon_path),
       allow_swipe_back: study.allow_swipe_back,
       allow_pausing: study.allow_pausing,
-      comment_button: study.comment_button ?? false,
-      save_button: study.save_button ?? false,
-      share_button: study.share_button ?? false,
-      pause_on_share: study.pause_on_share ?? false,
-      share_options: textItems(study.share_options?.length ? study.share_options : DEFAULT_SHARE_OPTIONS),
       audio_record: study.audio_record ?? false,
       camera_record: study.camera_record ?? false,
     },
@@ -503,12 +434,6 @@ export function fromStudyRows(
           media: stored(row.video_path, row.file_name),
           title: row.title ?? '',
           description: row.description ?? '',
-          comments: (row.comments ?? []).map((comment) => ({
-            id: createId(),
-            author: comment.author ?? '',
-            text: comment.text ?? '',
-            likes: typeof comment.likes === 'number' ? String(comment.likes) : '',
-          })),
         };
       }
       if (row.type === 'survey') {

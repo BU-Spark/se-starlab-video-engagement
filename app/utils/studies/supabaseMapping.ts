@@ -8,7 +8,7 @@
  *   RunResult              ──toSubmitRunPayload──▶ submit_run(run jsonb)  (tablet writes)
  */
 
-import type { Block, BlockResult, RunResult, Study, VideoComment } from '@/app/types';
+import type { Block, BlockResult, RunResult, Study } from '@/app/types';
 import type { BlockRow, StudyRow, SubmitRunPayload } from '@/app/utils/supabase/database.types';
 
 /**
@@ -23,21 +23,11 @@ function urlFor(urls: MediaUrls, path: string): string {
   return url;
 }
 
-function toComments(comments: BlockRow['comments']): VideoComment[] | undefined {
-  if (!comments?.length) return undefined;
-  return comments.map((comment) => ({
-    author: comment.author,
-    text: comment.text,
-    ...(typeof comment.likes === 'number' ? { likes: comment.likes } : {}),
-  }));
-}
-
 function toBlock(row: BlockRow, urls: MediaUrls): Block {
   const base = { id: row.id, label: row.label, ...(row.random_group ? { randomGroup: row.random_group } : {}) };
   switch (row.type) {
     case 'video': {
       if (!row.video_path) throw new Error(`Video block "${row.label}" has no video file.`);
-      const comments = toComments(row.comments);
       return {
         ...base,
         type: 'video',
@@ -45,7 +35,6 @@ function toBlock(row: BlockRow, urls: MediaUrls): Block {
         fileName: row.file_name || row.video_path.split('/').pop() || row.label,
         ...(row.title ? { title: row.title } : {}),
         ...(row.description ? { description: row.description } : {}),
-        ...(comments ? { comments } : {}),
       };
     }
     case 'survey':
@@ -74,15 +63,10 @@ export function rowsToStudy(study: StudyRow, blocks: BlockRow[], urls: MediaUrls
       rightText: study.right_button_text ?? '',
       ...(study.left_button_icon_path ? { leftIcon: urlFor(urls, study.left_button_icon_path) } : {}),
       ...(study.right_button_icon_path ? { rightIcon: urlFor(urls, study.right_button_icon_path) } : {}),
-      ...(study.share_options?.length ? { shareOptions: study.share_options } : {}),
     },
     controls: {
       swipeUp: study.allow_swipe_back,
       responseButtons: study.show_response_buttons,
-      commentButton: study.comment_button ?? false,
-      saveButton: study.save_button ?? false,
-      shareButton: study.share_button ?? false,
-      pauseOnShare: study.pause_on_share ?? false,
       pausing: study.allow_pausing,
       audioRecord: study.audio_record ?? false,
       cameraRecord: study.camera_record ?? false,
@@ -100,26 +84,51 @@ function toView(row: BlockResult): SubmitRunPayload['views'][number] {
     stimulus: row.stimulus,
     started_at: row.startedAtIso,
     watch_time_ms: Math.round(row.watchTimeMs),
-    button_press: row.buttonPress,
-    button_time_ms: ms(row.buttonTimeMs),
+    like_dislike: row.likeDislike,
+    like_dislike_time_ms: ms(row.likeDislikeTimeMs),
+    survey_answer: row.surveyAnswer,
+    survey_time_ms: ms(row.surveyTimeMs),
     swiped_back: row.swipedUp === 1,
-    share_time_ms: ms(row.shareTimeMs),
-    share_choice: row.shareChoice,
-    comment_time_ms: ms(row.commentTimeMs),
-    save_time_ms: ms(row.saveTimeMs),
-    saved: row.saved === 1,
+    video_start_at: row.videoStartAtIso,
+    video_end_at: row.videoEndAtIso,
+    pause_count: row.pauseCount,
+    paused_ms: Math.round(row.pausedMs),
   };
 }
 
-export function toSubmitRunPayload(run: RunResult, runId: string): SubmitRunPayload {
+/**
+ * `recordingPath` is where the tablet uploaded the session recording, or null when there is none
+ * (the study does not record, or the file was lost before it could be uploaded).
+ */
+export function toSubmitRunPayload(
+  run: RunResult,
+  runId: string,
+  recordingPath: string | null = null
+): SubmitRunPayload {
   return {
     id: runId,
     study_id: run.studyId,
     participant_id: run.participantId,
     started_at: run.startedAtIso,
     completed_at: run.completedAtIso || null,
+    recording_path: recordingPath,
+    recording_started_at: recordingPath && run.recording ? run.recording.startedAtIso : null,
     views: run.rows.map(toView),
   };
+}
+
+const EXTENSIONS: [prefix: string, extension: string][] = [
+  ['video/webm', 'webm'],
+  ['audio/webm', 'weba'],
+  ['video/mp4', 'mp4'],
+  ['audio/mp4', 'm4a'],
+  ['audio/ogg', 'ogg'],
+];
+
+/** Storage path of a run's recording in the run-recordings bucket: <study id>/<run id>.<ext>. */
+export function recordingPathFor(studyId: string, runId: string, mimeType: string): string {
+  const extension = EXTENSIONS.find(([prefix]) => mimeType.startsWith(prefix))?.[1] ?? 'bin';
+  return `${studyId}/${runId}.${extension}`;
 }
 
 /** cyrb128: a fast, well-mixed 128-bit non-cryptographic string hash (public domain). */

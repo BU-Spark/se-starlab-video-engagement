@@ -14,7 +14,7 @@ Status values: `Todo`, `In progress`, `Blocked`, `Done`.
 | --- | ------------------------------------------------------- | ------------ | -------- | ------ | ---------- |
 | T1  | Create base tables and apply the contract migrations    | E3           | High     | In progress | —          |
 | T2  | Researcher authentication and access policies           | E3 + E1      | Medium   | Todo   | T1         |
-| T3  | Tablet records `video_start_at` / `video_end_at`        | E2           | High     | Todo   | —          |
+| T3  | Tablet records `video_start_at` / `video_end_at`        | E2           | High     | In progress | —          |
 | T4  | Tablet Supabase sync path verified end to end           | E2           | High     | In progress | T1         |
 | T5  | Agree on the CSV output format with the client          | E1 + E2 + E3 | Medium   | Todo   | —          |
 | T6  | Download all runs as a .zip                             | E1           | Medium   | Done   | —          |
@@ -46,7 +46,7 @@ Status values: `Todo`, `In progress`, `Blocked`, `Done`.
 | Cloud Backend: study versions and run management, study download / data sync, exports from events | E3    | No separate server. Both apps call Supabase directly; `submit_run` (RPC), RLS and the lock trigger act as the backend. Exports are built in the browser | **Decide:** keep Supabase-only, or put the FastAPI skeleton in front. **Study versions** are replaced by "lock after runs + Duplicate"; confirm that this is enough              |
 | Database: study definitions and versions, runs and realized block order, raw behavioral events    | E3    | `studies`, `blocks`, `runs`, `block_views` (migrations written by E1)                                                                                   | No version table. Realized order is only implied by `block_views.view_order`. **Stores one summary row per block view, not raw events**: decide whether an event table is needed |
 | Media Storage: videos, instruction images, metadata                                               | E3    | Private `study-media` bucket: videos and button icons; file name kept in `blocks.file_name`                                                             | Instruction images (T8)                                                                                                                                                          |
-| Tablet App: participant ID, three block types, runner, event recorder                             | E2    | All, with ms timing from `performance.now()`                                                                                                            | Absolute video start/end timestamps (T3)                                                                                                                                         |
+| Tablet App: participant ID, three block types, runner, event recorder                             | E2    | All, with ms timing from `performance.now()`; video start/end timestamps, tap-to-pause count and time, and optional audio/camera recording per session | Measure timestamp accuracy on the target tablet (T3)                                                                                                                             |
 | Tablet Local Storage: downloaded study and media, event log / pending uploads                     | E2    | Media preloaded into memory (blob URLs) for the session; finished runs queued in `localStorage` (`pending-runs`) and retried                            | Media is not kept across an app reload; no raw event log                                                                                                                         |
 | Flows 1–3: download before the session, run and log locally, upload after the session             | E2    | All three (`getStudy` + preload, runner, `submit_run`)                                                                                                  | Untested against the real database (T4)                                                                                                                                          |
 
@@ -87,10 +87,12 @@ Participant data must be visible only to authorized researchers (IRB requirement
 
 The data spec requires `Video_start_timestamp` and `Video_end_timestamp` (system clock, ms precision). `block_views.video_start_at` / `video_end_at` exist and the researcher CSV exports them, but `BlockResult` has no such fields, so they are always empty.
 
-- [ ] Add the two timestamps to `BlockResult` in `app/types/study.types.ts`
-- [ ] Capture them when playback actually starts (`playing` event) and when it ends or the participant swipes away; define "end" for looping videos and swipe-away
-- [ ] Map them in `toSubmitRunPayload` (`app/utils/studies/supabaseMapping.ts`) and in `submit_run`
+- [x] Add the two timestamps to `BlockResult` in `app/types/study.types.ts`
+- [x] Capture them when playback actually starts (`playing` event) and when the participant swipes away. Videos loop, so **end = the moment the participant leaves the video**; a video that never played has both null
+- [x] Map them in `toSubmitRunPayload` (`app/utils/studies/supabaseMapping.ts`) and in `submit_run` (migration `20261101000100_tablet_timing_and_recording.sql`)
 - [ ] Measure accuracy on the target tablet (`performance.timeOrigin + performance.now()` vs `Date.now()`)
+
+The same migration adds `block_views.pause_count` / `paused_ms` (participant tap-to-pause only), `runs.recording_path` / `recording_started_at` with the private `run-recordings` bucket (tablet may only upload), and the missing columns of `export_rows`.
 
 **Done when:** the CSV from `/researcher/studies/[id]/data` has ms-precision `video_start_at` / `video_end_at` for every video view.
 
@@ -102,7 +104,7 @@ The data spec requires `Video_start_timestamp` and `Video_end_timestamp` (system
 - [ ] The tablet lists studies saved by the researcher pages, and preload downloads every video before the Participant ID screen
 - [ ] A finished run uploads through `submit_run`; a retry after a simulated network failure creates no duplicate run
 - [ ] Swiping back creates a new row, with `swiped_back = 1` on the row that was left
-- [ ] Survey: `button_time_ms` is the first bubble touch and `button_press` the final (changeable) choice. Video: only one response button, which cannot be switched
+- [ ] Survey: `survey_time_ms` is the first bubble touch and `survey_answer` the final (changeable) choice. Video: `like_dislike` is the first Like/Dislike press, which cannot be switched
 
 **Done when:** a run made on the tablet appears on the researcher Data page with the right run count and last sync time.
 
@@ -115,7 +117,7 @@ The data spec requires `Video_start_timestamp` and `Video_end_timestamp` (system
 | `Button_press` = `0` when none                                                                                                                           | empty cell                                                  |
 | `Button_time` = `0` when none                                                                                                                            | empty cell                                                  |
 | `Watch_time` written as `10000 ms`                                                                                                                       | integer milliseconds (`watch_time_ms`)                      |
-| Columns `Study_ID, Participant_ID, Block, Order, Stimuli, Watch_time, Swipe_back, Button_press, Button_time, Video_start_timestamp, Video_end_timestamp` | snake_case names, plus run, share, comment and save columns |
+| Columns `Study_ID, Participant_ID, Block, Order, Stimuli, Watch_time, Swipe_back, Button_press, Button_time, Video_start_timestamp, Video_end_timestamp` | snake_case names; `Button_press` / `Button_time` split into `like_dislike` (+ time) for videos and `survey_answer` (+ time) for surveys; plus run, pause and recording columns |
 
 - [ ] Ask at the next client meeting: empty or `0`, unit suffix or not, are the extra columns welcome
 - [ ] Update `app/researcher/_components/csv.ts` and `csv.test.ts` to match
@@ -178,3 +180,7 @@ Each line is one researcher button or flow:
 | 2026-10-31 | Created from a review against the client design document |
 | 2026-10-31 | T6 and T7 implemented in the researcher frontend         |
 | 2026-11-01 | T1/T4 verified locally on `integration`; cloud push pending |
+| 2026-11-01 | T3 implemented; pause tracking and audio/camera recording added; `export_rows` completed |
+| 2026-11-02 | Comments removed everywhere (`20261102000100_remove_comments.sql`); tap to pause on by default |
+| 2026-11-02 | Share and save buttons removed everywhere (`20261102000200_remove_share_and_save.sql`) |
+| 2026-11-02 | `button_press` split into `like_dislike` (Like/Dislike) and `survey_answer` (`20261102000300_split_like_dislike_and_survey.sql`) |

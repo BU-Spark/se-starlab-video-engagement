@@ -33,7 +33,9 @@ export const mockRepository: StudyRepository = {
     return study;
   },
 
-  async submitRun(run: RunResult): Promise<void> {
+  async submitRun(run: RunResult, recording?: Blob | null): Promise<void> {
+    // The mock keeps only the run; a recording is too large for localStorage.
+    if (recording) console.info('[mockRepository] Recording received and discarded', recording.size, 'bytes');
     const saved = JSON.parse(window.localStorage.getItem(MOCK_RUNS_STORAGE_KEY) ?? '[]') as RunResult[];
     saved.push(run);
     window.localStorage.setItem(MOCK_RUNS_STORAGE_KEY, JSON.stringify(saved));

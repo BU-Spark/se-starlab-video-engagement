@@ -3,24 +3,29 @@
  *
  * Steps a participant through the ordered blocks and records one BlockResult per viewing.
  * Timestamps are passed in with each action (from performance.now()) so the reducer stays pure
- * and the timing logic can be tested with fake clocks.
+ * and the timing logic can be tested with fake clocks. Actions that need the system clock also carry
+ * an ISO string computed by the caller from the same instant.
  */
 
-import type { Block, BlockResult, ButtonSide } from '@/app/types';
+import type { Block, BlockResult, LikeDislike } from '@/app/types';
 
 interface CurrentViewing {
   blockId: string;
   /** performance.now() when the block appeared */
   startedAt: number;
   startedAtIso: string;
-  buttonPress: string | null;
-  /** ms from startedAt to the (first) response */
-  buttonTimeMs: number | null;
-  shareTimeMs: number | null;
-  shareChoice: string | null;
-  commentTimeMs: number | null;
-  saveTimeMs: number | null;
-  saved: boolean;
+  likeDislike: LikeDislike | null;
+  likeDislikeTimeMs: number | null;
+  surveyAnswer: string | null;
+  /** ms from startedAt to the first survey option touch */
+  surveyTimeMs: number | null;
+  /** System clock time of the first `playing` event of this viewing */
+  videoStartIso: string | null;
+  pauseCount: number;
+  /** Paused time of pauses that already ended */
+  pausedMs: number;
+  /** performance.now() of the pause in progress, if any */
+  pausedAt: number | null;
 }
 
 export interface RunnerState {
@@ -35,12 +40,12 @@ export type RunnerAction =
   | { type: 'start'; now: number; iso: string }
   | { type: 'next'; now: number; iso: string }
   | { type: 'previous'; now: number; iso: string }
-  | { type: 'button'; side: ButtonSide; now: number }
+  | { type: 'button'; choice: LikeDislike; now: number }
   | { type: 'bubble'; option: string; now: number }
-  | { type: 'shareOpen'; now: number }
-  | { type: 'shareChoice'; choice: string; cancel: boolean }
-  | { type: 'commentOpen'; now: number }
-  | { type: 'save'; now: number };
+  // Video events carry the block id: a late media event must not land on the block shown after it.
+  | { type: 'videoPlaying'; blockId: string; iso: string }
+  | { type: 'pause'; blockId: string; now: number }
+  | { type: 'resume'; blockId: string; now: number };
 
 export function createRunnerState(blocks: Block[]): RunnerState {
   return { blocks, index: 0, current: null, rows: [], finished: false };
@@ -55,17 +60,18 @@ function beginViewing(block: Block, now: number, iso: string): CurrentViewing {
     blockId: block.id,
     startedAt: now,
     startedAtIso: iso,
-    buttonPress: null,
-    buttonTimeMs: null,
-    shareTimeMs: null,
-    shareChoice: null,
-    commentTimeMs: null,
-    saveTimeMs: null,
-    saved: false,
+    likeDislike: null,
+    likeDislikeTimeMs: null,
+    surveyAnswer: null,
+    surveyTimeMs: null,
+    videoStartIso: null,
+    pauseCount: 0,
+    pausedMs: 0,
+    pausedAt: null,
   };
 }
 
-function finishViewing(state: RunnerState, now: number, swipedUp: 0 | 1): BlockResult[] {
+function finishViewing(state: RunnerState, now: number, iso: string, swipedUp: 0 | 1): BlockResult[] {
   const { current } = state;
   if (!current) return state.rows;
   const block = state.blocks[state.index];
@@ -77,13 +83,16 @@ function finishViewing(state: RunnerState, now: number, swipedUp: 0 | 1): BlockR
       stimulus: stimulusFor(block),
       watchTimeMs: Math.round(now - current.startedAt),
       swipedUp,
-      buttonPress: current.buttonPress,
-      buttonTimeMs: current.buttonTimeMs,
-      shareTimeMs: current.shareTimeMs,
-      shareChoice: current.shareChoice,
-      commentTimeMs: current.commentTimeMs,
-      saveTimeMs: current.saveTimeMs,
-      saved: current.saved ? 1 : 0,
+      likeDislike: current.likeDislike,
+      likeDislikeTimeMs: current.likeDislikeTimeMs,
+      surveyAnswer: current.surveyAnswer,
+      surveyTimeMs: current.surveyTimeMs,
+      videoStartAtIso: current.videoStartIso,
+      // Videos loop, so the end of watching is when the participant leaves.
+      videoEndAtIso: current.videoStartIso ? iso : null,
+      pauseCount: current.pauseCount,
+      // A pause still running when the participant swipes away counts up to that moment.
+      pausedMs: current.pausedMs + (current.pausedAt === null ? 0 : Math.round(now - current.pausedAt)),
       startedAtIso: current.startedAtIso,
     },
   ];
@@ -99,7 +108,7 @@ export function runnerReducer(state: RunnerState, action: RunnerAction): RunnerS
 
     case 'next': {
       if (!state.current) return state;
-      const rows = finishViewing(state, action.now, 0);
+      const rows = finishViewing(state, action.now, action.iso, 0);
       const nextIndex = state.index + 1;
       if (nextIndex >= state.blocks.length) {
         return { ...state, rows, current: null, finished: true };
@@ -114,7 +123,7 @@ export function runnerReducer(state: RunnerState, action: RunnerAction): RunnerS
 
     case 'previous': {
       if (!state.current || state.index === 0) return state;
-      const rows = finishViewing(state, action.now, 1);
+      const rows = finishViewing(state, action.now, action.iso, 1);
       const prevIndex = state.index - 1;
       return {
         ...state,
@@ -126,13 +135,13 @@ export function runnerReducer(state: RunnerState, action: RunnerAction): RunnerS
 
     case 'button': {
       // Video response buttons: only the first press counts and it cannot be switched.
-      if (!state.current || state.current.buttonPress !== null) return state;
+      if (!state.current || state.current.likeDislike !== null) return state;
       return {
         ...state,
         current: {
           ...state.current,
-          buttonPress: action.side,
-          buttonTimeMs: Math.round(action.now - state.current.startedAt),
+          likeDislike: action.choice,
+          likeDislikeTimeMs: Math.round(action.now - state.current.startedAt),
         },
       };
     }
@@ -144,45 +153,34 @@ export function runnerReducer(state: RunnerState, action: RunnerAction): RunnerS
         ...state,
         current: {
           ...state.current,
-          buttonPress: action.option,
-          buttonTimeMs: state.current.buttonTimeMs ?? Math.round(action.now - state.current.startedAt),
+          surveyAnswer: action.option,
+          surveyTimeMs: state.current.surveyTimeMs ?? Math.round(action.now - state.current.startedAt),
         },
       };
     }
 
-    case 'shareOpen': {
-      // Time of the first tap on share; reopening does not move it.
-      if (!state.current || state.current.shareTimeMs !== null) return state;
-      return {
-        ...state,
-        current: { ...state.current, shareTimeMs: Math.round(action.now - state.current.startedAt) },
-      };
+    case 'videoPlaying': {
+      // The first playback start only; resuming after a pause or a loop does not move it.
+      const { current } = state;
+      if (!current || current.blockId !== action.blockId || current.videoStartIso !== null) return state;
+      return { ...state, current: { ...current, videoStartIso: action.iso } };
     }
 
-    case 'shareChoice': {
-      // The latest option picked wins, but a cancel is only recorded if nothing was recorded yet.
-      if (!state.current) return state;
-      if (action.cancel && state.current.shareChoice !== null) return state;
-      return { ...state, current: { ...state.current, shareChoice: action.choice } };
+    case 'pause': {
+      const { current } = state;
+      if (!current || current.blockId !== action.blockId || current.pausedAt !== null) return state;
+      return { ...state, current: { ...current, pauseCount: current.pauseCount + 1, pausedAt: action.now } };
     }
 
-    case 'commentOpen': {
-      if (!state.current || state.current.commentTimeMs !== null) return state;
-      return {
-        ...state,
-        current: { ...state.current, commentTimeMs: Math.round(action.now - state.current.startedAt) },
-      };
-    }
-
-    case 'save': {
-      // Each tap toggles; the time is of the first tap and `saved` is the state when leaving.
-      if (!state.current) return state;
+    case 'resume': {
+      const { current } = state;
+      if (!current || current.blockId !== action.blockId || current.pausedAt === null) return state;
       return {
         ...state,
         current: {
-          ...state.current,
-          saved: !state.current.saved,
-          saveTimeMs: state.current.saveTimeMs ?? Math.round(action.now - state.current.startedAt),
+          ...current,
+          pausedMs: current.pausedMs + Math.round(action.now - current.pausedAt),
+          pausedAt: null,
         },
       };
     }

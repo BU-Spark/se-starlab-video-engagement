@@ -6,6 +6,15 @@ import { useKiosk, useLocalStorage } from '@/app/hooks';
 import { studyRepository, type StudySummary } from '@/app/utils/studies';
 import { orderBlocks } from '@/app/utils/runner';
 import { preloadStudy, releaseMedia, type MediaMap, type PreloadProgress } from '@/app/utils/preload/preloadStudy';
+import {
+  checkRecordingPermission,
+  deleteRecording,
+  loadRecording,
+  recordingWanted,
+  saveRecording,
+  startSessionRecording,
+  type SessionRecording,
+} from '@/app/utils/recording';
 import { StudySelectScreen } from '../components/StudySelectScreen';
 import { PreloadScreen } from '../components/PreloadScreen';
 import { ParticipantIdScreen } from '../components/ParticipantIdScreen';
@@ -51,16 +60,24 @@ export function TabletApp() {
   const kiosk = useKiosk(phase.name === 'running' || phase.name === 'done');
 
   // ---- Uploads: every finished run is queued on the tablet first, then sent. ----
+  // Recordings wait in IndexedDB under the run's key; `fresh` holds one just recorded, in case storing it failed.
   const flushing = useRef(false);
   const uploadRuns = useCallback(
-    async (runs: RunResult[]): Promise<boolean> => {
+    async (runs: RunResult[], fresh?: { key: string; blob: Blob }): Promise<boolean> => {
       if (flushing.current) return false;
       flushing.current = true;
       const sent = new Set<string>();
       for (const run of runs) {
+        const key = runKey(run);
         try {
-          await studyRepository.submitRun(run);
-          sent.add(runKey(run));
+          let recording: Blob | null = null;
+          if (run.recording) {
+            recording = fresh?.key === key ? fresh.blob : await loadRecording(key).catch(() => null);
+            if (!recording) console.warn('[tablet] Recording missing on this tablet; uploading the run without it');
+          }
+          await studyRepository.submitRun(run, recording);
+          sent.add(key);
+          if (run.recording) await deleteRecording(key).catch(() => undefined);
         } catch (error) {
           console.warn('[tablet] Upload failed; keeping run queued', error);
         }
@@ -105,6 +122,20 @@ export function TabletApp() {
           releaseMedia(media);
           return;
         }
+        // Ask for camera/microphone now, while the researcher still holds the tablet.
+        const wanted = recordingWanted(study.controls);
+        if (wanted) {
+          try {
+            await checkRecordingPermission(wanted);
+          } catch (error) {
+            releaseMedia(media);
+            throw error;
+          }
+          if (controller.signal.aborted) {
+            releaseMedia(media);
+            return;
+          }
+        }
         setPhase({ name: 'participant', study, media });
       } catch (error) {
         if (!controller.signal.aborted) {
@@ -121,7 +152,17 @@ export function TabletApp() {
     setPhase({ name: 'loading', studyId, studyName: studies.find((s) => s.id === studyId)?.name ?? '' });
   };
 
+  // ---- Recording: started with the session, stopped when the last block is swiped away. ----
+  const recorder = useRef<Promise<SessionRecording | null> | null>(null);
+  const cancelRecording = useCallback(() => {
+    void recorder.current?.then((session) => session?.cancel());
+    recorder.current = null;
+  }, []);
+  useEffect(() => cancelRecording, [cancelRecording]);
+
   const backToStudies = () => {
+    // Leaving mid-session discards the run, so its recording goes too.
+    cancelRecording();
     if (phase.name === 'participant' || phase.name === 'running') releaseMedia(phase.media);
     // Fullscreen is only for the session itself. Staying in it afterwards stopped the next
     // Participant ID box from taking typing until Esc; the next Start tap re-enters it.
@@ -135,6 +176,14 @@ export function TabletApp() {
     if (phase.name !== 'participant') return;
     // Called inside the Start tap, which is what lets the browser go fullscreen and play sound.
     kiosk.enter();
+    const wanted = recordingWanted(phase.study.controls);
+    recorder.current = wanted
+      ? startSessionRecording(wanted).catch((error) => {
+          // The session still runs; the run is uploaded without a recording.
+          console.warn('[tablet] Recording could not start', error);
+          return null;
+        })
+      : null;
     setPhase({
       name: 'running',
       study: phase.study,
@@ -147,11 +196,25 @@ export function TabletApp() {
 
   const runningMedia = phase.name === 'running' ? phase.media : null;
   const completeSession = useCallback(
-    async (run: RunResult) => {
+    async (result: RunResult) => {
       if (runningMedia) releaseMedia(runningMedia);
-      setPendingRuns((current) => [...current, run]);
       setPhase({ name: 'done', status: 'uploading' });
-      const ok = await uploadRuns([run]);
+      let run = result;
+      let fresh: { key: string; blob: Blob } | undefined;
+      const session = await recorder.current;
+      recorder.current = null;
+      if (session) {
+        try {
+          const { blob, recording } = await session.stop();
+          run = { ...result, recording };
+          fresh = { key: runKey(run), blob };
+          await saveRecording(fresh.key, blob);
+        } catch (error) {
+          console.warn('[tablet] Could not keep the recording on the tablet', error);
+        }
+      }
+      setPendingRuns((current) => [...current, run]);
+      const ok = await uploadRuns([run], fresh);
       setPhase({ name: 'done', status: ok ? 'saved' : 'queued' });
     },
     [runningMedia, setPendingRuns, uploadRuns]

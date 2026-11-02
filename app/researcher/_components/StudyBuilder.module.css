@@ -1230,25 +1230,9 @@ a.primaryButton {
   background: #fff4f5;
 }
 
-/* Tablet side buttons, recording, video captions and comments */
+/* Recording and video captions */
 .subHeading {
   margin-top: 22px;
-}
-.shareOptions {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin: -4px 0 14px;
-  padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: #fbfafb;
-}
-.shareOptions .optionsHeading {
-  margin: 0;
-}
-.shareOptions .optionRow input {
-  min-width: 0;
 }
 .captionFields {
   display: grid;
@@ -1256,27 +1240,8 @@ a.primaryButton {
   gap: 16px;
   margin: 18px 0 6px;
 }
-.commentList {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-.commentRow {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-}
-.commentFields {
-  flex: 1;
-  min-width: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 0.8fr) minmax(0, 2fr) minmax(0, 0.55fr);
-  gap: 8px;
-}
 @media (max-width: 620px) {
-  .captionFields,
-  .commentFields {
+  .captionFields {
     grid-template-columns: minmax(0, 1fr);
   }
 }

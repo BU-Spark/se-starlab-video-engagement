@@ -51,12 +51,12 @@ describe('StudySession', () => {
     const run = onComplete.mock.calls[0][0];
     expect(run.participantId).toBe('P1');
     expect(run.blockOrder).toEqual(['b1', 'b2', 'b3']);
-    expect(run.rows.map((r) => [r.blockId, r.swipedUp, r.buttonPress])).toEqual([
-      ['b1', 0, null],
-      ['b2', 0, 'Right'],
-      ['b3', 1, null],
-      ['b2', 0, null],
-      ['b3', 0, 'No'],
+    expect(run.rows.map((r) => [r.blockId, r.swipedUp, r.likeDislike, r.surveyAnswer])).toEqual([
+      ['b1', 0, null, null],
+      ['b2', 0, 'Like', null],
+      ['b3', 1, null, null],
+      ['b2', 0, null, null],
+      ['b3', 0, null, 'No'],
     ]);
     expect(run.rows.every((r) => r.watchTimeMs >= 0)).toBe(true);
   });

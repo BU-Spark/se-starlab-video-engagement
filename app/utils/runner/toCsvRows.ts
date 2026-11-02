@@ -2,9 +2,8 @@
  * app/utils/runner/toCsvRows.ts
  *
  * Flattens a RunResult into the table layout from the design document:
- * Blocks | Order | Stimuli | Watch_time | Swipe_up? | Button_press | Button_time
- * plus Share_time | Share_choice | Comment_time | Save_time | Saved for the side buttons,
- * added after the original columns.
+ * Blocks | Order | Stimuli | Watch_time | Swipe_up? | Like_dislike | Like_dislike_time | Survey_answer | Survey_time
+ * plus Video_start_timestamp | Video_end_timestamp | Pause_count | Paused_time, added after the original columns.
  */
 
 import type { RunResult } from '@/app/types';
@@ -15,13 +14,14 @@ export const CSV_HEADER = [
   'Stimuli',
   'Watch_time',
   'Swipe_up?',
-  'Button_press',
-  'Button_time',
-  'Share_time',
-  'Share_choice',
-  'Comment_time',
-  'Save_time',
-  'Saved',
+  'Like_dislike',
+  'Like_dislike_time',
+  'Survey_answer',
+  'Survey_time',
+  'Video_start_timestamp',
+  'Video_end_timestamp',
+  'Pause_count',
+  'Paused_time',
 ];
 
 /** The Study_ID / Participant_ID rows put "0" in every column after the first four */
@@ -39,13 +39,14 @@ export function toCsvRows(run: RunResult): string[][] {
       row.stimulus,
       `${row.watchTimeMs} ms`,
       String(row.swipedUp),
-      row.buttonPress ?? '0',
-      row.buttonTimeMs === null ? '0' : `${row.buttonTimeMs} ms`,
-      row.shareTimeMs === null ? '0' : `${row.shareTimeMs} ms`,
-      row.shareChoice ?? '0',
-      row.commentTimeMs === null ? '0' : `${row.commentTimeMs} ms`,
-      row.saveTimeMs === null ? '0' : `${row.saveTimeMs} ms`,
-      String(row.saved),
+      row.likeDislike ?? '0',
+      row.likeDislikeTimeMs === null ? '0' : `${row.likeDislikeTimeMs} ms`,
+      row.surveyAnswer ?? '0',
+      row.surveyTimeMs === null ? '0' : `${row.surveyTimeMs} ms`,
+      row.videoStartAtIso ?? '0',
+      row.videoEndAtIso ?? '0',
+      String(row.pauseCount),
+      `${row.pausedMs} ms`,
     ]),
   ];
 }

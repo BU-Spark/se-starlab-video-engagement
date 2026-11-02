@@ -2,12 +2,9 @@ import {
   copyName,
   copyStudyRows,
   createBlock,
-  createComment,
   createStudy,
-  DEFAULT_SHARE_OPTIONS,
   fromStudyRows,
   plannedUploads,
-  textItems,
   toStudyRows,
   validateStudy,
   type DraftBlock,
@@ -70,9 +67,6 @@ test('maps settings onto public.studies columns', () => {
   draft.settings.left_button_text = ' No ';
   draft.settings.right_button_icon = media('star.png', 'image/png');
   draft.settings.allow_swipe_back = true;
-  draft.settings.comment_button = true;
-  draft.settings.share_button = true;
-  draft.settings.share_options = textItems([' Copy link ', 'Email']);
   draft.settings.camera_record = true;
   const { study } = toStudyRows(draft, STUDY_ID, pathsFor(draft));
   expect(study).toEqual({
@@ -86,19 +80,17 @@ test('maps settings onto public.studies columns', () => {
     left_button_icon_path: null,
     right_button_icon_path: STUDY_ID + '/icons/right-media-star.png-star.png',
     allow_swipe_back: true,
-    allow_pausing: false,
-    comment_button: true,
-    save_button: false,
-    share_button: true,
-    pause_on_share: false,
-    share_options: ['Copy link', 'Email'],
+    // Tap to pause is on by default for new studies.
+    allow_pausing: true,
     audio_record: false,
     camera_record: true,
   });
 });
 
-test('new studies start with the tablet default share options', () => {
-  expect(createStudy().settings.share_options.map((o) => o.label)).toEqual(DEFAULT_SHARE_OPTIONS);
+test('new studies have tap to pause on, and no comment, share or save settings', () => {
+  const { settings } = createStudy();
+  expect(settings.allow_pausing).toBe(true);
+  expect(Object.keys(settings).filter((key) => /comment|share|save/.test(key))).toEqual([]);
 });
 
 test('maps blocks onto public.blocks with 1-based positions and type-specific columns', () => {
@@ -107,10 +99,6 @@ test('maps blocks onto public.blocks with 1-based positions and type-specific co
   if (video.type === 'video') {
     video.title = ' My cat ';
     video.description = 'Line one\nLine two';
-    video.comments = [
-      { id: 'c1', author: ' sam ', text: ' So cute ', likes: '12' },
-      { id: 'c2', author: 'alex', text: 'Again!', likes: '' },
-    ];
   }
   const { blocks } = toStudyRows(draft, STUDY_ID, pathsFor(draft));
   expect(blocks.map((b) => [b.position, b.type, b.label])).toEqual([
@@ -118,16 +106,12 @@ test('maps blocks onto public.blocks with 1-based positions and type-specific co
     [2, 'video', 'clip one.mp4'],
     [3, 'survey', 'survey1'],
   ]);
-  expect(blocks[0]).toMatchObject({ body: 'Watch each video.', prompt: null, title: null, comments: null });
+  expect(blocks[0]).toMatchObject({ body: 'Watch each video.', prompt: null, title: null });
   expect(blocks[1]).toMatchObject({
     video_path: STUDY_ID + '/videos/media-clip one.mp4-clip_one.mp4',
     file_name: 'clip one.mp4',
     title: 'My cat',
     description: 'Line one\nLine two',
-    comments: [
-      { author: 'sam', text: 'So cute', likes: 12 },
-      { author: 'alex', text: 'Again!' },
-    ],
     body: null,
   });
   expect(blocks[2]).toMatchObject({
@@ -166,23 +150,6 @@ test('group randomization needs at least two blocks in one group', () => {
   expect(validateStudy(draft).randomization).toBeUndefined();
 });
 
-test('validates comments and share options', () => {
-  const draft = readyDraft();
-  const video = draft.blocks[1];
-  const comment = { ...createComment(), likes: 'lots' };
-  if (video.type === 'video') video.comments = [comment];
-  draft.settings.share_button = true;
-  draft.settings.share_options = textItems(['']);
-  const errors = validateStudy(draft);
-  expect(errors[comment.id + '.author']).toBeDefined();
-  expect(errors[comment.id + '.text']).toBeDefined();
-  expect(errors[comment.id + '.likes']).toBeDefined();
-  expect(errors[draft.settings.share_options[0].id + '.label']).toBeDefined();
-  draft.settings.share_button = false;
-  expect(errors[draft.settings.share_options[0].id + '.label']).toBeDefined();
-  expect(validateStudy(draft)[draft.settings.share_options[0].id + '.label']).toBeUndefined();
-});
-
 test('labels are required and files must be uploaded before rows are built', () => {
   const draft = readyDraft();
   draft.blocks[0].label = ' ';
@@ -207,18 +174,13 @@ test('fromStudyRows restores what toStudyRows saved', () => {
   draft.blocks[1].random_group = 'A';
   draft.blocks[2].random_group = 'A';
   draft.settings.left_button_icon = media('no.png', 'image/png');
-  draft.settings.save_button = true;
-  draft.settings.share_options = textItems(['Email']);
+  draft.settings.allow_swipe_back = true;
   const video = draft.blocks[1];
-  if (video.type === 'video') {
-    video.title = 'Title';
-    video.comments = [{ id: 'c1', author: 'sam', text: 'Hi', likes: '3' }];
-  }
+  if (video.type === 'video') video.title = 'Title';
   const { rows, restored } = roundTrip(draft, { [plannedUploads(draft, STUDY_ID)[0].path]: 'https://signed/icon' });
   expect(restored.name).toBe('Attention study');
   expect(restored.settings.randomization).toBe('groups');
-  expect(restored.settings.save_button).toBe(true);
-  expect(restored.settings.share_options.map((o) => o.label)).toEqual(['Email']);
+  expect(restored.settings.allow_swipe_back).toBe(true);
   expect(restored.settings.left_button_icon).toMatchObject({ kind: 'stored', url: 'https://signed/icon' });
   expect(restored.blocks.map((b) => [b.id, b.type, b.label, b.random_group])).toEqual(
     draft.blocks.map((b) => [b.id, b.type, b.label.trim(), b.random_group.trim()])
@@ -226,9 +188,6 @@ test('fromStudyRows restores what toStudyRows saved', () => {
   const restoredVideo = restored.blocks[1];
   expect(restoredVideo).toMatchObject({ type: 'video', title: 'Title', description: '' });
   expect(restoredVideo.type === 'video' && restoredVideo.media).toMatchObject({ kind: 'stored', name: 'clip one.mp4' });
-  expect(restoredVideo.type === 'video' && restoredVideo.comments).toMatchObject([
-    { author: 'sam', text: 'Hi', likes: '3' },
-  ]);
   // Saving again without changes keeps the stored paths and needs no uploads.
   expect(plannedUploads(restored, STUDY_ID)).toEqual([]);
   expect(toStudyRows(restored, STUDY_ID, {})).toEqual(rows);
@@ -277,8 +236,7 @@ test('rows saved before the migration still load (legacy "instruction" type, mis
     ]
   );
   expect(restored.blocks[0]).toMatchObject({ type: 'instructions', body: 'Hi' });
-  expect(restored.settings).toMatchObject({ comment_button: false, share_button: false, audio_record: false });
-  expect(restored.settings.share_options.map((o) => o.label)).toEqual(DEFAULT_SHARE_OPTIONS);
+  expect(restored.settings).toMatchObject({ audio_record: false, camera_record: false });
 });
 
 test('copy names skip names already taken', () => {

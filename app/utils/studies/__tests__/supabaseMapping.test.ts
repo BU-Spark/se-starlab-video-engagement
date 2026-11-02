@@ -1,7 +1,7 @@
 import type { RunResult } from '@/app/types';
 import type { BlockRow, StudyRow } from '@/app/utils/supabase/database.types';
 import { orderBlocks } from '@/app/utils/runner';
-import { mediaPathsOf, rowsToStudy, runIdFor, toSubmitRunPayload } from '../supabaseMapping';
+import { mediaPathsOf, recordingPathFor, rowsToStudy, runIdFor, toSubmitRunPayload } from '../supabaseMapping';
 
 const NOW = '2026-10-29T00:00:00+00:00';
 const S = '00000000-0000-4000-8000-0000000000aa';
@@ -18,11 +18,6 @@ const study: StudyRow = {
   right_button_icon_path: S + '/icons/right.png',
   allow_swipe_back: true,
   allow_pausing: false,
-  comment_button: true,
-  save_button: true,
-  share_button: false,
-  pause_on_share: true,
-  share_options: ['Email'],
   audio_record: false,
   camera_record: false,
   created_at: NOW,
@@ -41,7 +36,6 @@ const block = (over: Partial<BlockRow>): BlockRow => ({
   file_name: null,
   title: null,
   description: null,
-  comments: null,
   prompt: null,
   options: null,
   created_at: NOW,
@@ -60,10 +54,6 @@ const blocks: BlockRow[] = [
     video_path: S + '/videos/x-cat.mp4',
     file_name: 'cat.mp4',
     title: 'My cat',
-    comments: [
-      { author: 'sam', text: 'cute', likes: 4 },
-      { author: 'alex', text: 'again' },
-    ],
   }),
 ];
 
@@ -80,15 +70,10 @@ describe('rowsToStudy', () => {
         leftText: 'No',
         rightText: '',
         rightIcon: 'https://cdn/right?sig',
-        shareOptions: ['Email'],
       },
       controls: {
         swipeUp: true,
         responseButtons: true,
-        commentButton: true,
-        saveButton: true,
-        shareButton: false,
-        pauseOnShare: true,
         pausing: false,
         audioRecord: false,
         cameraRecord: false,
@@ -103,10 +88,6 @@ describe('rowsToStudy', () => {
           videoUrl: 'https://cdn/cat?sig',
           fileName: 'cat.mp4',
           title: 'My cat',
-          comments: [
-            { author: 'sam', text: 'cute', likes: 4 },
-            { author: 'alex', text: 'again' },
-          ],
         },
         { id: 'b3', label: 'survey1', type: 'survey', prompt: 'Fun?', options: ['Yes', 'No'] },
       ],
@@ -157,13 +138,14 @@ const run: RunResult = {
       stimulus: 'cat.mp4',
       watchTimeMs: 8123.4,
       swipedUp: 1,
-      buttonPress: 'Right',
-      buttonTimeMs: 2410,
-      shareTimeMs: 3900,
-      shareChoice: 'Email',
-      commentTimeMs: null,
-      saveTimeMs: 5100,
-      saved: 1,
+      likeDislike: 'Like',
+      likeDislikeTimeMs: 2410,
+      surveyAnswer: null,
+      surveyTimeMs: null,
+      videoStartAtIso: '2026-10-29T15:00:05.120Z',
+      videoEndAtIso: '2026-10-29T15:00:13.123Z',
+      pauseCount: 2,
+      pausedMs: 1450.6,
       startedAtIso: '2026-10-29T15:00:05.000Z',
     },
   ],
@@ -177,6 +159,8 @@ describe('toSubmitRunPayload', () => {
       participant_id: 'P001',
       started_at: '2026-10-29T15:00:00.000Z',
       completed_at: '2026-10-29T15:04:00.000Z',
+      recording_path: null,
+      recording_started_at: null,
       views: [
         {
           block_id: 'b2',
@@ -184,17 +168,44 @@ describe('toSubmitRunPayload', () => {
           stimulus: 'cat.mp4',
           started_at: '2026-10-29T15:00:05.000Z',
           watch_time_ms: 8123,
-          button_press: 'Right',
-          button_time_ms: 2410,
+          like_dislike: 'Like',
+          like_dislike_time_ms: 2410,
+          survey_answer: null,
+          survey_time_ms: null,
           swiped_back: true,
-          share_time_ms: 3900,
-          share_choice: 'Email',
-          comment_time_ms: null,
-          save_time_ms: 5100,
-          saved: true,
+          video_start_at: '2026-10-29T15:00:05.120Z',
+          video_end_at: '2026-10-29T15:00:13.123Z',
+          pause_count: 2,
+          paused_ms: 1451,
         },
       ],
     });
+  });
+});
+
+describe('recordings', () => {
+  const recorded: RunResult = {
+    ...run,
+    recording: { mimeType: 'video/webm;codecs=vp8,opus', startedAtIso: '2026-10-29T15:00:00.400Z' },
+  };
+
+  it('stores the recording path and start time only when a file was uploaded', () => {
+    expect(toSubmitRunPayload(recorded, 'rid', 'S/rid.webm')).toMatchObject({
+      recording_path: 'S/rid.webm',
+      recording_started_at: '2026-10-29T15:00:00.400Z',
+    });
+    // The file was lost on the tablet: the run is still stored, without a recording.
+    expect(toSubmitRunPayload(recorded, 'rid', null)).toMatchObject({
+      recording_path: null,
+      recording_started_at: null,
+    });
+  });
+
+  it('names the file after the run, with an extension for its format', () => {
+    expect(recordingPathFor('study', 'rid', 'video/webm;codecs=vp8,opus')).toBe('study/rid.webm');
+    expect(recordingPathFor('study', 'rid', 'video/mp4')).toBe('study/rid.mp4');
+    expect(recordingPathFor('study', 'rid', 'audio/webm')).toBe('study/rid.weba');
+    expect(recordingPathFor('study', 'rid', 'audio/mp4')).toBe('study/rid.m4a');
   });
 });
 

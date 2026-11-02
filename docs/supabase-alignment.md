@@ -40,17 +40,12 @@ If the existing schema already has a differently named check constraint on `bloc
 | Study name                  | `name` (unique)                          | `name`                                  |                                                            |
 | Randomization (see §3)      | `randomized`                             | `randomized`                            |                                                            |
 | Video progress bar          | `show_video_bar`                         | `display.videoBar`                      |                                                            |
-| Left / right button text    | `left/right_button_text`                 | `display.leftText` / `rightText`        | `''` = no label                                            |
+| Left / right button text    | `left/right_button_text`                 | `display.leftText` / `rightText`        | `''` = no label. Right = Like (top), left = Dislike (bottom) |
 | Left / right button icon    | `left/right_button_icon_path`            | `display.leftIcon` / `rightIcon`        | Storage path → signed URL (2 h); null = default 👎 / 👍    |
 | Response buttons            | `show_response_buttons`                  | `controls.responseButtons`              |                                                            |
-| Comment button              | `comment_button` _(new)_                 | `controls.commentButton`                |                                                            |
-| Save button                 | `save_button` _(new)_                    | `controls.saveButton`                   |                                                            |
-| Share button                | `share_button` _(new)_                   | `controls.shareButton`                  |                                                            |
-| Share options list          | `share_options text[]` _(new)_           | `display.shareOptions`                  | Kept while the share button is off; null = tablet defaults |
-| Pause while panels are open | `pause_on_share` _(new)_                 | `controls.pauseOnShare`                 | Enabled in the UI only when comment or share is on         |
 | Swipe back                  | `allow_swipe_back`                       | `controls.swipeUp`                      | `swipeUp` means "may go back"                              |
 | Tap to pause                | `allow_pausing`                          | `controls.pausing`                      |                                                            |
-| Audio / camera recording    | `audio_record` / `camera_record` _(new)_ | `controls.audioRecord` / `cameraRecord` | Saved now; the tablet does not record yet                  |
+| Audio / camera recording    | `audio_record` / `camera_record` _(new)_ | `controls.audioRecord` / `cameraRecord` | One file per run in the `run-recordings` bucket            |
 
 ### `blocks` ↔ `Study.blocks[]`
 
@@ -64,7 +59,6 @@ If the existing schema already has a differently named check constraint on `bloc
 | `body`                         | `text` (instructions)                       |                                                                            |
 | `video_path`, `file_name`      | `videoUrl` (signed), `fileName`             |                                                                            |
 | `title`, `description` _(new)_ | `title`, `description` (video)              | Blank → null → hidden                                                      |
-| `comments jsonb` _(new)_       | `comments` (video)                          | `[{ author, text, likes? }]`; null → "No comments yet"                     |
 | `prompt`, `options text[]`     | `prompt`, `options` (survey)                |                                                                            |
 
 ### `RunResult` → `runs` + `block_views`
@@ -77,11 +71,13 @@ If the existing schema already has a differently named check constraint on `bloc
 | —                                                                        | `runs.synced_at`                                                                    | `now()` inside `submit_run`                        |
 | `blockOrder`                                                             | not stored                                                                          | Equal to the views ordered by `view_order`         |
 | `rows[].blockId`, `order`, `stimulus`                                    | `block_id`, `view_order`, `stimulus`                                                |                                                    |
-| `watchTimeMs`, `buttonPress`, `buttonTimeMs`                             | `watch_time_ms`, `button_press`, `button_time_ms`                                   | Rounded to whole ms                                |
+| `watchTimeMs`, `likeDislike`, `likeDislikeTimeMs`                        | `watch_time_ms`, `like_dislike` (`Like`/`Dislike`), `like_dislike_time_ms`          | Video blocks; rounded to whole ms                  |
+| `surveyAnswer`, `surveyTimeMs`                                           | `survey_answer`, `survey_time_ms`                                                   | Survey blocks                                      |
 | `swipedUp` 0/1                                                           | `swiped_back` boolean                                                               |                                                    |
 | `startedAtIso`                                                           | `block_views.started_at`                                                            |                                                    |
-| `shareTimeMs`, `shareChoice`, `commentTimeMs`, `saveTimeMs`, `saved` 0/1 | `share_time_ms`, `share_choice`, `comment_time_ms`, `save_time_ms`, `saved` _(new)_ |                                                    |
-| —                                                                        | `video_start_at`, `video_end_at`                                                    | Not produced by the tablet yet; stay null          |
+| `videoStartAtIso`, `videoEndAtIso`                                       | `video_start_at`, `video_end_at`                                                    | First `playing` event; leaving the video           |
+| `pauseCount`, `pausedMs`                                                 | `pause_count`, `paused_ms`                                                          | Participant tap-to-pause only                      |
+| `recording.startedAtIso` + uploaded file                                 | `runs.recording_started_at`, `runs.recording_path`                                  | `run-recordings/<study id>/<run id>.<ext>`         |
 
 ## 3. Randomization rule
 
@@ -116,6 +112,5 @@ Delete: refused once the study has runs; otherwise deletes blocks, the study and
 ## 6. Open questions
 
 - Researcher login (Supabase Auth): until it exists, the researcher pages need the demo-only policies in the second migration.
-- Audio / camera recording: stored per study, waiting for tablet support and a place to keep the recordings.
-- `video_start_at` / `video_end_at`: should the tablet report them, or should the columns be dropped?
+- Audio / camera recording: one file per session, capped at 50 MB (about 11 minutes with the camera). Confirm with the client whether longer camera sessions are needed.
 - Regenerate `database.types.ts` with `supabase gen types typescript` once the project is linked.

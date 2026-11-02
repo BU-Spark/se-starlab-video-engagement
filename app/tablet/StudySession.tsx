@@ -21,7 +21,7 @@ interface StudySessionProps {
 
 /** Runs one participant through every block and reports the RunResult when the last block is swiped away. */
 export function StudySession({ study, blocks, participantId, startedAtIso, media, onComplete }: StudySessionProps) {
-  const { state, start, next, previous, pressButton, chooseBubble, openShare, chooseShare, openComments, toggleSave } =
+  const { state, start, next, previous, pressButton, chooseBubble, videoPlaying, pauseVideo, resumeVideo } =
     useBlockRunner(blocks);
   const reported = useRef(false);
 
@@ -43,8 +43,6 @@ export function StudySession({ study, blocks, participantId, startedAtIso, media
     });
   }, [state.finished, state.rows, study, participantId, startedAtIso, blocks, onComplete]);
 
-  const response = state.current?.buttonPress ?? null;
-
   const renderSlide = (block: Block, active: boolean) => {
     switch (block.type) {
       case 'instructions':
@@ -60,18 +58,21 @@ export function StudySession({ study, blocks, participantId, startedAtIso, media
             rightIconSrc={study.display.rightIcon && (media.get(study.display.rightIcon) ?? study.display.rightIcon)}
             title={block.title}
             description={block.description}
-            comments={block.comments}
-            saved={active && (state.current?.saved ?? false)}
-            response={active ? response : null}
+            response={active ? (state.current?.likeDislike ?? null) : null}
             onButton={pressButton}
-            onShareOpen={openShare}
-            onShareChoice={chooseShare}
-            onCommentOpen={openComments}
-            onSave={toggleSave}
+            onVideoStart={(at) => videoPlaying(block.id, at)}
+            onPause={(at) => pauseVideo(block.id, at)}
+            onResume={(at) => resumeVideo(block.id, at)}
           />
         );
       case 'survey':
-        return <SurveySlide block={block} selected={active ? response : null} onChoose={chooseBubble} />;
+        return (
+          <SurveySlide
+            block={block}
+            selected={active ? (state.current?.surveyAnswer ?? null) : null}
+            onChoose={chooseBubble}
+          />
+        );
     }
   };
 

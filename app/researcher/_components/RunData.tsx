@@ -6,8 +6,8 @@ import Icon from './Icon';
 import ResearcherShell from './ResearcherShell';
 import { buildRunsCsv, buildRunsZip, csvFileName, downloadCsv, downloadZip, zipFileName } from './csv';
 import type { BlockViewRow, RunRow } from '@/app/utils/supabase/database.types';
-import { formatDateTime, formatDuration, formatMs } from './format';
-import { getStudy, getSupabase, listBlockViews, listRuns, type LoadedStudy } from './study-repository';
+import { formatClock, formatDateTime, formatDuration, formatMs } from './format';
+import { getStudy, getSupabase, listBlockViews, listRuns, recordingUrl, type LoadedStudy } from './study-repository';
 import styles from './StudyBuilder.module.css';
 import page from './ResearcherPages.module.css';
 
@@ -85,6 +85,21 @@ export default function RunData({ studyId }: { studyId: string }) {
         ...current,
         [run.id]: { error: error instanceof Error ? error.message : 'Could not load block views.' },
       }));
+    }
+  }
+
+  async function openRecording(run: RunRow) {
+    if (!supabase || !run.recording_path) return;
+    setActionError(null);
+    // Opened before the await so the browser does not treat it as an unrequested pop-up.
+    const tab = window.open('', '_blank');
+    try {
+      const url = await recordingUrl(supabase, run.recording_path);
+      if (tab) tab.location.href = url;
+      else window.location.href = url;
+    } catch (error) {
+      tab?.close();
+      setActionError(error instanceof Error ? error.message : 'Could not open the recording.');
     }
   }
 
@@ -273,6 +288,15 @@ export default function RunData({ studyId }: { studyId: string }) {
                               >
                                 {downloading === run.id ? 'Preparing…' : 'Download CSV'}
                               </button>
+                              {run.recording_path && (
+                                <button
+                                  type="button"
+                                  className={page.linkButton}
+                                  onClick={() => void openRecording(run)}
+                                >
+                                  Recording
+                                </button>
+                              )}
                             </span>
                           </td>
                         </tr>
@@ -294,12 +318,12 @@ export default function RunData({ studyId }: { studyId: string }) {
                                         <th scope="col">Block</th>
                                         <th scope="col">Stimulus</th>
                                         <th scope="col">Watch time</th>
-                                        <th scope="col">Button</th>
-                                        <th scope="col">Button time</th>
+                                        <th scope="col">Like / dislike</th>
+                                        <th scope="col">Survey answer</th>
                                         <th scope="col">Swiped back</th>
-                                        <th scope="col">Share</th>
-                                        <th scope="col">Comments opened</th>
-                                        <th scope="col">Saved</th>
+                                        <th scope="col">Video start</th>
+                                        <th scope="col">Video end</th>
+                                        <th scope="col">Paused</th>
                                       </tr>
                                     </thead>
                                     <tbody>
@@ -309,20 +333,23 @@ export default function RunData({ studyId }: { studyId: string }) {
                                           <td>{blockById.get(view.block_id)?.label ?? '—'}</td>
                                           <td>{view.stimulus}</td>
                                           <td>{formatMs(view.watch_time_ms)}</td>
-                                          <td>{view.button_press ?? '—'}</td>
-                                          <td>{formatMs(view.button_time_ms)}</td>
-                                          <td>{view.swiped_back ? 'Yes' : 'No'}</td>
                                           <td>
-                                            {view.share_time_ms === null || view.share_time_ms === undefined
-                                              ? '—'
-                                              : (view.share_choice ?? '—') + ' · ' + formatMs(view.share_time_ms)}
+                                            {view.like_dislike
+                                              ? view.like_dislike + ' · ' + formatMs(view.like_dislike_time_ms)
+                                              : '—'}
                                           </td>
-                                          <td>{formatMs(view.comment_time_ms)}</td>
                                           <td>
-                                            {view.saved ? 'Yes' : 'No'}
-                                            {view.save_time_ms !== null && view.save_time_ms !== undefined
-                                              ? ' · first tap ' + formatMs(view.save_time_ms)
-                                              : ''}
+                                            {view.survey_answer
+                                              ? view.survey_answer + ' · ' + formatMs(view.survey_time_ms)
+                                              : '—'}
+                                          </td>
+                                          <td>{view.swiped_back ? 'Yes' : 'No'}</td>
+                                          <td>{formatClock(view.video_start_at)}</td>
+                                          <td>{formatClock(view.video_end_at)}</td>
+                                          <td>
+                                            {view.pause_count
+                                              ? view.pause_count + '× · ' + formatMs(view.paused_ms)
+                                              : '—'}
                                           </td>
                                         </tr>
                                       ))}

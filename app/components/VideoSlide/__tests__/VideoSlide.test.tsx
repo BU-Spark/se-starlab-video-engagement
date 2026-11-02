@@ -18,6 +18,42 @@ beforeAll(() => {
 });
 
 describe('VideoSlide', () => {
+  it('reports playback start, and pauses and resumes from participant taps only', () => {
+    const onVideoStart = jest.fn();
+    const onPause = jest.fn();
+    const onResume = jest.fn();
+    const { container } = render(
+      <VideoSlide
+        src="/v.mp4"
+        active
+        display={display}
+        controls={controls}
+        response={null}
+        onButton={jest.fn()}
+        onVideoStart={onVideoStart}
+        onPause={onPause}
+        onResume={onResume}
+      />
+    );
+    const video = container.querySelector('video')!;
+    let paused = false;
+    Object.defineProperty(video, 'paused', { get: () => paused });
+
+    fireEvent(video, new Event('playing'));
+    expect(onVideoStart).toHaveBeenCalledTimes(1);
+
+    // A play event that is not a resume from the participant's pause (e.g. a panel closing) is not counted.
+    fireEvent.play(video);
+    expect(onResume).not.toHaveBeenCalled();
+
+    fireEvent.click(video); // tap while playing: pause
+    expect(onPause).toHaveBeenCalledTimes(1);
+    paused = true;
+    fireEvent.click(video); // tap while paused: play, reported by the play event
+    fireEvent.play(video);
+    expect(onResume).toHaveBeenCalledTimes(1);
+  });
+
   it('reports the pressed side with the touch-down time', () => {
     const onButton = jest.fn();
     render(
@@ -26,13 +62,13 @@ describe('VideoSlide', () => {
     const like = screen.getByRole('button', { name: 'Like' });
     fireEvent.pointerDown(like, { timeStamp: 1234 });
     fireEvent.click(like);
-    expect(onButton).toHaveBeenCalledWith('Right', expect.any(Number));
+    expect(onButton).toHaveBeenCalledWith('Like', expect.any(Number));
     expect(screen.getByText('Dislike')).toBeInTheDocument();
   });
 
   it('locks both buttons once a response is recorded', () => {
     render(
-      <VideoSlide src="/v.mp4" active display={display} controls={controls} response="Left" onButton={jest.fn()} />
+      <VideoSlide src="/v.mp4" active display={display} controls={controls} response="Dislike" onButton={jest.fn()} />
     );
     expect(screen.getByRole('button', { name: 'Dislike' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Like' })).toBeDisabled();
@@ -53,103 +89,14 @@ describe('VideoSlide', () => {
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 
-  it('shows only the side buttons the study turns on', () => {
-    const { container } = render(
-      <VideoSlide
-        src="/v.mp4"
-        active
-        display={display}
-        controls={{ ...controls, responseButtons: false, commentButton: true, shareButton: true }}
-        response={null}
-        onButton={jest.fn()}
-      />
-    );
-    const shown = [...container.querySelectorAll('[data-action]')].map((el) => el.getAttribute('data-action'));
-    expect(shown).toEqual(['comment', 'share']);
-  });
-
-  it('opens the share sheet and reports the tap and the choice, keeping the video playing', () => {
-    const onShareOpen = jest.fn();
-    const onShareChoice = jest.fn();
-    const pause = HTMLMediaElement.prototype.pause as jest.Mock;
+  it('shows only the like and dislike buttons: no comment, share or save buttons', () => {
     render(
-      <VideoSlide
-        src="/v.mp4"
-        active
-        display={{ ...display, shareOptions: ['Copy link', 'Email'] }}
-        controls={{ ...controls, shareButton: true }}
-        response={null}
-        onButton={jest.fn()}
-        onShareOpen={onShareOpen}
-        onShareChoice={onShareChoice}
-      />
+      <VideoSlide src="/v.mp4" active display={display} controls={controls} response={null} onButton={jest.fn()} />
     );
-    pause.mockClear();
-    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
-    expect(onShareOpen).toHaveBeenCalledWith(expect.any(Number));
-    expect(pause).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: /Email/ }));
-    expect(onShareChoice).toHaveBeenCalledWith('Email');
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-  });
-
-  it('pauses while sharing when the study asks for it', () => {
-    const pause = HTMLMediaElement.prototype.pause as jest.Mock;
-    render(
-      <VideoSlide
-        src="/v.mp4"
-        active
-        display={display}
-        controls={{ ...controls, shareButton: true, pauseOnShare: true }}
-        response={null}
-        onButton={jest.fn()}
-      />
-    );
-    pause.mockClear();
-    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
-    expect(pause).toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: /Copy link/ })).toBeInTheDocument();
-  });
-
-  it('opens the comments panel with the video comments and reports the tap', () => {
-    const onCommentOpen = jest.fn();
-    render(
-      <VideoSlide
-        src="/v.mp4"
-        active
-        display={display}
-        controls={{ ...controls, commentButton: true }}
-        comments={[{ author: 'sam', text: 'Nice one' }]}
-        response={null}
-        onButton={jest.fn()}
-        onCommentOpen={onCommentOpen}
-      />
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Comments' }));
-    expect(onCommentOpen).toHaveBeenCalledWith(expect.any(Number));
-    expect(screen.getByText('Nice one')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-  });
-
-  it('reports save taps and shows the saved state it is given', () => {
-    const onSave = jest.fn();
-    render(
-      <VideoSlide
-        src="/v.mp4"
-        active
-        display={display}
-        controls={{ ...controls, saveButton: true }}
-        saved
-        response={null}
-        onButton={jest.fn()}
-        onSave={onSave}
-      />
-    );
-    const save = screen.getByRole('button', { name: 'Save' });
-    expect(save).toHaveAttribute('aria-pressed', 'true');
-    fireEvent.click(save);
-    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(screen.getAllByRole('button').map((button) => button.getAttribute('aria-label'))).toEqual([
+      'Like',
+      'Dislike',
+    ]);
   });
 
   it('shows the title and description when set', () => {
