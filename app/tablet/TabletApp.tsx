@@ -109,6 +109,21 @@ export function TabletApp() {
     if (pendingAtStartup.current.length > 0) uploadRuns(pendingAtStartup.current);
   }, [loadStudies, uploadRuns]);
 
+  // Studies created or deleted on the researcher website show up when the tablet screen comes back into view.
+  const onSelectScreen = phase.name === 'select';
+  useEffect(() => {
+    if (!onSelectScreen) return;
+    const refresh = () => {
+      if (document.visibilityState === 'visible') loadStudies();
+    };
+    document.addEventListener('visibilitychange', refresh);
+    window.addEventListener('focus', refresh);
+    return () => {
+      document.removeEventListener('visibilitychange', refresh);
+      window.removeEventListener('focus', refresh);
+    };
+  }, [onSelectScreen, loadStudies]);
+
   // ---- Preloading ----
   const loadingStudyId = phase.name === 'loading' ? phase.studyId : null;
   useEffect(() => {

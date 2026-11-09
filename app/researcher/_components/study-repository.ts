@@ -377,22 +377,25 @@ export async function duplicateStudy(supabase: SupabaseClient, studyId: string):
   }
 }
 
-/** Deletes a study without runs, its blocks and its files. Studies with runs are refused. */
+/**
+ * Deletes a study and everything that belongs to it: participant runs and block views, blocks,
+ * videos and icons (study-media) and session recordings (run-recordings).
+ * The rows go in one transaction (delete_study); the files are removed afterwards. A file that
+ * cannot be removed is only left over in Storage, never referenced by the database.
+ */
 export async function deleteStudy(supabase: SupabaseClient, studyId: string): Promise<void> {
   try {
-    if ((await countRuns(supabase, studyId)) > 0) {
-      throw new SaveStudyError('This study has participant data, so it cannot be deleted.');
-    }
     const loaded = await getStudy(supabase, studyId);
     if (!loaded) return;
-    fail((await supabase.from('blocks').delete().eq('study_id', studyId)).error, 'delete the blocks');
-    fail((await supabase.from('studies').delete().eq('id', studyId)).error, 'delete the study');
-    const paths = referencedPaths(loaded.study, loaded.blocks);
-    if (paths.length)
-      await supabase.storage
-        .from(STUDY_MEDIA_BUCKET)
-        .remove(paths)
-        .catch(() => undefined);
+    const runs = await listRuns(supabase, studyId);
+    fail((await supabase.rpc('delete_study', { target: studyId })).error, 'delete the study');
+
+    const media = referencedPaths(loaded.study, loaded.blocks);
+    const recordings = runs.map((run) => run.recording_path).filter((path): path is string => !!path);
+    await Promise.all([
+      media.length ? supabase.storage.from(STUDY_MEDIA_BUCKET).remove(media) : null,
+      recordings.length ? supabase.storage.from(RUN_RECORDINGS_BUCKET).remove(recordings) : null,
+    ]).catch(() => undefined);
   } catch (error) {
     throw wrap(error);
   }

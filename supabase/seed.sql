@@ -29,3 +29,8 @@ create policy "demo anon delete media" on storage.objects for delete to anon usi
 -- Lets the researcher data page play participant recordings without a login (local only).
 drop policy if exists "demo anon read recordings" on storage.objects;
 create policy "demo anon read recordings" on storage.objects for select to anon using (bucket_id = 'run-recordings');
+
+-- Lets the researcher pages delete studies (with their runs and recordings) without a login (local only).
+grant execute on function public.delete_study(uuid) to anon;
+drop policy if exists "demo anon delete recordings" on storage.objects;
+create policy "demo anon delete recordings" on storage.objects for delete to anon using (bucket_id = 'run-recordings');

@@ -4,7 +4,7 @@ Owner: Engineer 1 / Louis. Stage: create, list, edit, delete studies and inspect
 
 ## 1. Goal and Scope
 
-Researchers can configure a study, add Instructions, Video, and Survey blocks, edit their content, reorder them, preview local files, and save the study to Supabase. They can then find it in the study list, edit it until participants run it, delete it while it has no data, and inspect or download the runs the tablet syncs. Field names follow the `studies` / `blocks` schema; see [Supabase Schema Alignment](supabase-alignment.md).
+Researchers can configure a study, add Instructions, Video, and Survey blocks, edit their content, reorder them, preview local files, and save the study to Supabase. They can then find it in the study list, edit it until participants run it, delete it (with its participant data), and inspect or download the runs the tablet syncs. Field names follow the `studies` / `blocks` schema; see [Supabase Schema Alignment](supabase-alignment.md).
 
 Saving requires `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in `.env.local`. Without them (including CI and the isolated preview) the builder is a local preview with Save disabled, and the list, edit and data pages explain that Supabase is not configured. Audio and camera recording can be switched on per study; the tablet asks for permission after preloading and records the whole session (HTTPS or localhost only).
 
@@ -19,7 +19,7 @@ Saving requires `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE
 
 Data rules:
 
-- A study with at least one run is **locked**: the editor opens read-only and Delete is disabled, because `block_views` refer to its blocks. Save and delete also re-check the run count immediately before writing. The `blocks_locked_after_runs` trigger in the second migration enforces the same rule in the database.
+- A study with at least one run is **locked**: the editor opens read-only, because `block_views` refer to its blocks. Save re-checks the run count immediately before writing. **Delete** still works: its confirmation says how many runs go with it, and it also removes the study's videos, icons and recordings. The `blocks_locked_after_runs` trigger in the second migration enforces the same rule in the database.
 - Saving an edit is refused if `studies.updated_at` changed since the page loaded (someone else saved); reload to continue.
 - Replaced or removed videos/icons are deleted from Storage after a successful save; deleting a study also deletes its files.
 - **Duplicate** copies the settings, blocks and Storage files into a new study named `<name> (copy)` (then `(copy 2)`, …) with new block ids and no runs, and opens it in the editor. This is how a locked study is changed for new participants.

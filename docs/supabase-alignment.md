@@ -107,7 +107,7 @@ Create: check the name is unused → upload files to `study-media` (`{study_id}/
 
 Edit: refused once the study has runs → name check → upload new files → `update … where updated_at = <loaded value>` (zero rows = someone else saved; show a conflict) → replace blocks (safe because no views exist) → delete files no longer referenced.
 
-Delete: refused once the study has runs; otherwise deletes blocks, the study and its files.
+Delete: allowed at any time, with a confirmation that names the run count. `delete_study(target)` (security definer, migration `20261102000400`) deletes runs (block views cascade), blocks and the study in one transaction; the website then removes the study's files from `study-media` and its recordings from `run-recordings`. The tablet drops a queued run whose study no longer exists.
 
 ## 6. Open questions
 

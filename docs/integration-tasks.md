@@ -170,7 +170,7 @@ Each line is one researcher button or flow:
 - [ ] `/researcher/studies` → **Refresh**: run count and last sync update
 - [ ] `/researcher/studies/[id]/data` → **Inspect ▾** shows block views; **Download CSV** works per run and for all runs
 - [ ] Randomization Off / All blocks / By group give the expected orders across runs
-- [ ] After a run: **Edit** opens read-only, **Delete** is disabled, and direct block changes are refused by the database trigger
+- [ ] After a run: **Edit** opens read-only, direct block changes are refused by the database trigger, and **Delete** removes the study with its runs and files
 - [ ] Record the results and share them with the client (Milestone 4)
 
 ## Change Log
@@ -184,3 +184,4 @@ Each line is one researcher button or flow:
 | 2026-11-02 | Comments removed everywhere (`20261102000100_remove_comments.sql`); tap to pause on by default |
 | 2026-11-02 | Share and save buttons removed everywhere (`20261102000200_remove_share_and_save.sql`) |
 | 2026-11-02 | `button_press` split into `like_dislike` (Like/Dislike) and `survey_answer` (`20261102000300_split_like_dislike_and_survey.sql`) |
+| 2026-11-02 | Delete works for studies with runs (`delete_study`, `20261102000400_delete_study.sql`) |

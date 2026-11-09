@@ -1034,14 +1034,19 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
                   Cancel
                 </button>
                 <button type="button" className={styles.dangerButton} disabled={deleting} onClick={removeStudy}>
-                  {deleting ? 'Deleting…' : 'Delete permanently'}
+                  {deleting
+                    ? 'Deleting…'
+                    : lockedByRuns
+                      ? 'Delete study + ' + edit.loaded.runCount + ' run' + (edit.loaded.runCount === 1 ? '' : 's')
+                      : 'Delete permanently'}
                 </button>
               </div>
             ) : (
               <button
                 type="button"
                 className={styles.dangerButton}
-                disabled={lockedByRuns || !supabase || saving}
+                disabled={!supabase || saving}
+                title={lockedByRuns ? 'Also deletes its participant runs and recordings.' : undefined}
                 onClick={() => setConfirmStudyDelete(true)}
               >
                 <Icon name="trash" size={16} />

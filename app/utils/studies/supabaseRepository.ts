@@ -60,6 +60,13 @@ export const supabaseRepository: StudyRepository = {
   },
 
   async submitRun(run: RunResult, recording?: Blob | null): Promise<void> {
+    // The researcher may have deleted the study since this session ran: its data goes with it.
+    const exists = await client().from('studies').select('id').eq('id', run.studyId).maybeSingle();
+    if (exists.error) throw new Error(`Upload failed: ${exists.error.message}`);
+    if (!exists.data) {
+      console.warn('[tablet] Study was deleted; dropping its queued run');
+      return;
+    }
     const runId = runIdFor(run);
     let recordingPath: string | null = null;
     if (run.recording && recording) {

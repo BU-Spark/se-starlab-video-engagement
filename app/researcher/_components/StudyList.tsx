@@ -164,7 +164,11 @@ export default function StudyList() {
                               disabled={busyId === study.id}
                               onClick={() => void remove(study)}
                             >
-                              {busyId === study.id ? 'Deleting…' : 'Delete permanently'}
+                              {busyId === study.id
+                                ? 'Deleting…'
+                                : locked
+                                  ? 'Delete study + ' + study.runCount + ' run' + (study.runCount === 1 ? '' : 's')
+                                  : 'Delete permanently'}
                             </button>
                           </span>
                         ) : (
@@ -187,8 +191,8 @@ export default function StudyList() {
                             <button
                               type="button"
                               className={page.dangerLink}
-                              disabled={locked}
-                              title={locked ? 'Studies with participant data cannot be deleted.' : undefined}
+                              disabled={busyId !== null}
+                              title={locked ? 'Also deletes its participant runs and recordings.' : undefined}
                               aria-label={'Delete ' + study.name}
                               onClick={() => setConfirmDelete(study.id)}
                             >

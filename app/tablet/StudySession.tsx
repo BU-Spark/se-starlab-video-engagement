@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Block, RunResult, Study } from '@/app/types';
 import { useBlockRunner } from '@/app/hooks';
 import type { MediaMap } from '@/app/utils/preload/preloadStudy';
@@ -24,6 +24,9 @@ export function StudySession({ study, blocks, participantId, startedAtIso, media
   const { state, start, next, previous, pressButton, chooseBubble, videoPlaying, pauseVideo, resumeVideo } =
     useBlockRunner(blocks);
   const reported = useRef(false);
+  // Sound on/off carries over from one video to the next.
+  const [muted, setMuted] = useState(false);
+  const [volume, setVolume] = useState(1);
 
   useEffect(() => {
     start();
@@ -63,6 +66,10 @@ export function StudySession({ study, blocks, participantId, startedAtIso, media
             onVideoStart={(at) => videoPlaying(block.id, at)}
             onPause={(at) => pauseVideo(block.id, at)}
             onResume={(at) => resumeVideo(block.id, at)}
+            muted={muted}
+            onMutedChange={setMuted}
+            volume={volume}
+            onVolumeChange={setVolume}
           />
         );
       case 'survey':
