@@ -108,3 +108,12 @@ test('4. Navigation reaches the study list, which explains that Supabase is need
   await page.getByRole('link', { name: 'Create new', exact: true }).first().click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Create a study.');
 });
+
+test('5. The sign-in page says sign-in needs Supabase and links to the local preview', async ({ page }) => {
+  await page.goto('/researcher/login');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Researcher sign in');
+  await expect(page.getByText(/Supabase is not configured\. Sign-in is disabled\./)).toBeVisible();
+  await page.getByRole('link', { name: 'Open the local preview' }).click();
+  await expect(page).toHaveURL(/\/researcher\/studies$/);
+  await expect(page.getByRole('button', { name: 'Sign out' })).toHaveCount(0);
+});

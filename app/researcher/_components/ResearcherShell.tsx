@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import AccountMenu from './AccountMenu';
 import Icon from './Icon';
 import styles from './StudyBuilder.module.css';
 
@@ -23,10 +24,7 @@ export default function ResearcherShell({
           <span className={styles.brandDivider} />
           <strong>STAR LAB</strong>
         </div>
-        <span className={styles.researcherBadge}>
-          <span />
-          Researcher workspace
-        </span>
+        <AccountMenu />
       </header>
       <nav className={styles.nav} aria-label="Researcher navigation">
         <Link

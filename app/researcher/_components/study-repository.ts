@@ -6,7 +6,7 @@ import {
   type RunRow,
   type StudyRow,
 } from '@/app/utils/supabase/database.types';
-import { getSupabase, STUDY_MEDIA_BUCKET } from '@/app/utils/supabase/client';
+import { getResearcherSupabase, STUDY_MEDIA_BUCKET } from '@/app/utils/supabase/client';
 import {
   copyName,
   copyStudyRows,
@@ -17,7 +17,9 @@ import {
   type StudyDraft,
 } from './study-model';
 
-export { getSupabase, STUDY_MEDIA_BUCKET };
+/** The signed-in researcher's client; null when Supabase is not configured (local preview). */
+export const getSupabase = getResearcherSupabase;
+export { STUDY_MEDIA_BUCKET };
 
 export type SaveProgress =
   | { stage: 'checking' }

@@ -1,0 +1,27 @@
+/* Sign-in page. Colour tokens and form controls come from .workspace in StudyBuilder.module.css. */
+.page {
+  display: grid;
+  place-items: center;
+  min-height: calc(100vh - 85px);
+  padding: 40px 16px;
+}
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+  max-width: 380px;
+  padding: 32px 28px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.card > div,
+.card > p {
+  margin: 0;
+}
+.title {
+  font-size: 20px;
+  font-weight: 650;
+  margin: 0 0 4px;
+}

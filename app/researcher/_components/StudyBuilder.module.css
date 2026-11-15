@@ -101,6 +101,15 @@
   border-radius: 20px;
   padding: 7px 13px;
 }
+.account {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.account .secondaryButton {
+  min-height: 34px;
+  padding: 7px 14px;
+}
 .researcherBadge > span {
   background: #b5142c;
   width: 6px;
