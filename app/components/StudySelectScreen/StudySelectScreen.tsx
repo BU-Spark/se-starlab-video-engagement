@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { TabletScreen, tabletStyles } from '../TabletScreen';
 import { StudySelectScreenProps } from './StudySelectScreen.types';
 import styles from './StudySelectScreen.module.css';
@@ -9,6 +10,7 @@ export const StudySelectScreen = ({
   pendingUploads,
   onSelect,
   onReload,
+  deviceCheckHref,
 }: StudySelectScreenProps) => {
   return (
     <TabletScreen title="Please Select Study">
@@ -37,6 +39,11 @@ export const StudySelectScreen = ({
         <p className={tabletStyles.message} role="status">
           {pendingUploads} completed session{pendingUploads === 1 ? '' : 's'} waiting to upload
         </p>
+      )}
+      {deviceCheckHref && (
+        <Link href={deviceCheckHref} className={styles.deviceCheck}>
+          Device check
+        </Link>
       )}
     </TabletScreen>
   );

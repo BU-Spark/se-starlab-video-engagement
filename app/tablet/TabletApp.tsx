@@ -252,6 +252,7 @@ export function TabletApp() {
             pendingUploads={pendingRuns.length}
             onSelect={selectStudy}
             onReload={loadStudies}
+            deviceCheckHref="/tablet/check"
           />
         )}
 

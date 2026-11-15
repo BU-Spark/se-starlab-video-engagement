@@ -23,3 +23,12 @@
 .item:active {
   background: #b9c8e4;
 }
+
+.deviceCheck {
+  margin-top: 1rem;
+  align-self: center;
+  padding: 0.5rem 1rem;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.95rem;
+  text-decoration: underline;
+}

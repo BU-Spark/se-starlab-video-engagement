@@ -8,4 +8,6 @@ export interface StudySelectScreenProps {
   pendingUploads: number;
   onSelect: (studyId: string) => void;
   onReload: () => void;
+  /** Link to the device check page, shown small at the bottom for researchers */
+  deviceCheckHref?: string;
 }
