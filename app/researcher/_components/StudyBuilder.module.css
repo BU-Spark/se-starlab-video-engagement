@@ -110,6 +110,18 @@
   min-height: 34px;
   padding: 7px 14px;
 }
+.accountLink {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.accountLink:hover,
+.accountLink:focus-visible {
+  color: var(--red);
+  text-decoration: underline;
+}
 .researcherBadge > span {
   background: #b5142c;
   width: 6px;

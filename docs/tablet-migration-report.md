@@ -69,7 +69,10 @@ npx supabase db reset
 1. 创建 Supabase 云端项目，执行 `npx supabase link` 和 `npx supabase db push`。注意 `db push` 不会执行 `seed.sql`，这是有意的。
 2. 在控制台关闭注册，创建研究者账号并加入白名单。
 3. 确认两个私有存储桶 `study-media` 和 `run-recordings` 已经创建。
-4. 在 Auth 设置里把 `site_url` 改成 Railway 的正式域名。
+4. 在 Authentication → URL Configuration 里：
+   - **Site URL** 改成 Railway 的正式域名。邀请邮件的链接会打开这个地址，首页会把链接转到 `/researcher/reset-password`，让研究者设置密码；
+   - **Redirect URLs** 加上 `https://<Railway 域名>/researcher/reset-password`，"忘记密码"邮件的链接才会直接打开设置密码页。
+5. 云端 Supabase 自带的邮件服务每小时只能发几封，只够测试用。正式使用前，在 Authentication → SMTP Settings 配置学校或实验室的邮箱；或者先在控制台用 "Add user → Create new user" 直接给研究者设好密码，不发邮件。
 
 ### 3.2 部署（Louis / Andy）
 

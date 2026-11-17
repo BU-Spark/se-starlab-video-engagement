@@ -10,6 +10,7 @@ import {
   DevToolsDetails,
   ResponsiveDesignDetails,
 } from './components/FeatureCard/details';
+import AuthLinkForwarder from './researcher/_components/AuthLinkForwarder';
 import styles from './page.module.css';
 
 type FeatureData = Omit<FeatureCardProps, 'onClick' | 'isExpanded'>;
@@ -59,6 +60,7 @@ export default function HomePage() {
 
   return (
     <div className={styles.container}>
+      <AuthLinkForwarder />
       <div className={styles.themeToggleContainer}>
         <ThemeToggle />
       </div>

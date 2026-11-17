@@ -1,8 +1,9 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { LOGIN_PATH } from './auth';
+import { LOGIN_PATH, RESET_PATH } from './auth';
 import { getSupabase } from './study-repository';
 import styles from './StudyBuilder.module.css';
 
@@ -37,9 +38,14 @@ export default function AccountMenu() {
         {email ?? 'Researcher workspace'}
       </span>
       {supabase && (
-        <button type="button" className={styles.secondaryButton} onClick={signOut}>
-          Sign out
-        </button>
+        <>
+          <Link href={RESET_PATH} className={styles.accountLink}>
+            Change password
+          </Link>
+          <button type="button" className={styles.secondaryButton} onClick={signOut}>
+            Sign out
+          </button>
+        </>
       )}
     </div>
   );
