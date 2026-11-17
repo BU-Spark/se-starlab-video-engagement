@@ -4,6 +4,11 @@ export type IconName =
   | 'plus'
   | 'arrowUp'
   | 'arrowDown'
+  | 'arrowLeft'
+  | 'arrowRight'
+  | 'edit'
+  | 'copy'
+  | 'grip'
   | 'trash'
   | 'video'
   | 'text'
@@ -23,6 +28,20 @@ export default function Icon({ name, size = 20, style }: { name: IconName; size?
     plus: <path d="M12 5v14M5 12h14" />,
     arrowUp: <path d="m6 12 6-6 6 6M12 6v12" />,
     arrowDown: <path d="m6 12 6 6 6-6M12 6v12" />,
+    arrowLeft: <path d="m12 6-6 6 6 6M6 12h12" />,
+    arrowRight: <path d="m12 6 6 6-6 6M6 12h12" />,
+    copy: <path d="M9 9h10v11H9zM5 15V4h10" />,
+    edit: <path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4ZM13.5 6.5l4 4" />,
+    grip: (
+      <>
+        <circle cx="9" cy="6" r="1.2" fill="currentColor" />
+        <circle cx="15" cy="6" r="1.2" fill="currentColor" />
+        <circle cx="9" cy="12" r="1.2" fill="currentColor" />
+        <circle cx="15" cy="12" r="1.2" fill="currentColor" />
+        <circle cx="9" cy="18" r="1.2" fill="currentColor" />
+        <circle cx="15" cy="18" r="1.2" fill="currentColor" />
+      </>
+    ),
     trash: (
       <>
         <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5" />

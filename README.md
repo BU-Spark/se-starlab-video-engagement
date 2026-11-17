@@ -47,13 +47,22 @@ On the studies list, select **Create new**.
    - **Video:** a video file from your computer, with an optional caption.
    - **Survey:** a question with two or more answer options.
 
-   Every block needs a **label**. It identifies that block in the downloaded data. Use the up/down arrows on a block to
-   reorder it.
+   Every block needs a **label**. It identifies that block in the downloaded data. Blocks appear as small cards, three
+   per row, in the order participants see them (left to right, then the next row). Select a card or its pencil icon to
+   edit it in a popup. Drag a card to move it, or use the ← → arrows on it.
+
+   **Reuse earlier work:** select **Import from library** next to Add block, or open the **Block library** tab. Each
+   earlier study is one card; select it to see its blocks (instructions, videos and surveys, in order) and button
+   icons in a list. Tick the blocks you want (choose icons with **Use for Like / Use for Dislike**) and select
+   **Done**; you can pick from several studies. Then choose **At the end** or the spot to put them and select
+   **Import**. Imported blocks are copies: change them freely, then select Save. Their videos are copied into the new
+   study, so deleting the old study does not affect them.
 
 4. Select **Save study**. Videos upload while it saves, which can take a minute for large files.
 
-**Once anyone has run a study, it's locked** so the data stays consistent. To change it for new participants,
-select **Duplicate** on the studies list and edit the copy.
+**You can keep editing a study after participants have run it.** Open it with **Edit**, make your changes and select
+**Save changes** at the bottom. Changes apply to the next participants; responses already collected keep what those
+participants saw. The one thing you can't do is remove a block that already has participant data.
 
 ## 3. Run a session on the tablet
 
@@ -162,7 +171,7 @@ Leave the **Email** provider itself on, or no one can sign in.
 | A Vercel login page                                      | You opened an old deployment link. Use the addresses in [The two parts](#the-two-parts) |
 | "No studies available." on the tablet                    | No study has been saved yet, or the tablet is offline                                   |
 | "Loading failed" on the tablet                           | Check the Wi-Fi and pick the study again                                                |
-| A study can't be edited                                  | It has been run. Use **Duplicate** and edit the copy                                    |
+| "Block … has participant data and cannot be removed"     | Undo removing that block, then save                                                     |
 
 # Part 2: For developers
 

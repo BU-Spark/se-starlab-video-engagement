@@ -160,6 +160,43 @@ export function moveBlock(blocks: DraftBlock[], id: string, direction: -1 | 1): 
   return next;
 }
 
+/**
+ * Inserts a copy of a block right after it: new id, a "(copy)" label (labels must be unique), new
+ * survey option ids. `copyMedia` gives the copy its own media entry (a local file needs its own preview URL).
+ */
+export function duplicateBlock(
+  blocks: DraftBlock[],
+  id: string,
+  copyMedia: (media: Media) => Media
+): { blocks: DraftBlock[]; copy: DraftBlock | null } {
+  const index = blocks.findIndex((block) => block.id === id);
+  if (index < 0) return { blocks, copy: null };
+  const original = blocks[index];
+  const label = copyName(
+    original.label.trim() || 'block',
+    blocks.map((block) => block.label)
+  );
+  const copy: DraftBlock =
+    original.type === 'survey'
+      ? { ...original, id: createId(), label, options: original.options.map((o) => ({ ...o, id: createId() })) }
+      : original.type === 'video'
+        ? { ...original, id: createId(), label, media: original.media && copyMedia(original.media) }
+        : { ...original, id: createId(), label };
+  return { blocks: [...blocks.slice(0, index + 1), copy, ...blocks.slice(index + 1)], copy };
+}
+
+/** Moves a block to `toIndex` (its position after the move), e.g. after dragging it in the block grid. */
+export function moveBlockTo(blocks: DraftBlock[], id: string, toIndex: number): DraftBlock[] {
+  const from = blocks.findIndex((block) => block.id === id);
+  if (from < 0) return blocks;
+  const to = Math.max(0, Math.min(blocks.length - 1, toIndex));
+  if (from === to) return blocks;
+  const next = [...blocks];
+  const [moved] = next.splice(from, 1);
+  next.splice(to, 0, moved);
+  return next;
+}
+
 export function validateStudy(draft: StudyDraft): ValidationErrors {
   const errors: ValidationErrors = {};
   const s = draft.settings;
@@ -252,6 +289,31 @@ export function plannedUploads(draft: StudyDraft, studyId: string): PendingUploa
   return uploads;
 }
 
+/**
+ * Files in Storage that belong to another study (imported from the library) are copied into this
+ * study's folder on save, so deleting the other study never removes them from this one.
+ */
+export function plannedCopies(draft: StudyDraft, studyId: string): { media: StoredMedia; to: string }[] {
+  const copies: { media: StoredMedia; to: string }[] = [];
+  const foreign = (media: Media | null): media is StoredMedia =>
+    media?.kind === 'stored' && !media.path.startsWith(studyId + '/');
+  for (const side of ['left', 'right'] as const) {
+    const icon = draft.settings[buttonKeys[side].icon];
+    if (foreign(icon)) {
+      copies.push({ media: icon, to: studyId + '/icons/' + side + '-' + icon.id + '-' + safeFileName(icon.name) });
+    }
+  }
+  for (const block of draft.blocks) {
+    if (block.type === 'video' && foreign(block.media)) {
+      copies.push({
+        media: block.media,
+        to: studyId + '/videos/' + block.media.id + '-' + safeFileName(block.media.name),
+      });
+    }
+  }
+  return copies;
+}
+
 const blankToNull = (value: string) => value.trim() || null;
 
 /**
@@ -266,7 +328,8 @@ export function toStudyRows(
 ): { study: StudyInsert; blocks: BlockInsert[] } {
   if (Object.keys(validateStudy(draft)).length) throw new Error('Study is not ready to save.');
   const pathOf = (media: Media) => {
-    if (media.kind === 'stored') return media.path;
+    // A stored file from another study has been copied into this one (uploadedPaths holds the copy).
+    if (media.kind === 'stored') return uploadedPaths[media.id] ?? media.path;
     const path = uploadedPaths[media.id];
     if (!path) throw new Error('Upload every selected file before saving.');
     return path;
@@ -388,12 +451,8 @@ export function copyStudyRows(
  * Inverse of `toStudyRows`: rebuilds editor state from saved rows (edit mode).
  * `signedUrls` maps Storage path → preview URL; missing entries leave the preview empty.
  */
-export function fromStudyRows(
-  study: StudyRow,
-  blocks: BlockRow[],
-  signedUrls: Record<string, string> = {}
-): StudyDraft {
-  const stored = (path: string | null, name?: string | null): StoredMedia | null =>
+function storedMedia(signedUrls: Record<string, string>) {
+  return (path: string | null, name?: string | null): StoredMedia | null =>
     path
       ? {
           kind: 'stored',
@@ -404,6 +463,63 @@ export function fromStudyRows(
           status: 'ready',
         }
       : null;
+}
+
+function blockFromRow(row: BlockRow, stored: ReturnType<typeof storedMedia>): DraftBlock {
+  const base = { id: row.id, label: row.label, random_group: row.random_group ?? '' };
+  if (row.type === 'video') {
+    return {
+      ...base,
+      type: 'video',
+      media: stored(row.video_path, row.file_name),
+      title: row.title ?? '',
+      description: row.description ?? '',
+    };
+  }
+  if (row.type === 'survey') {
+    return { ...base, type: 'survey', prompt: row.prompt ?? '', options: textItems(row.options ?? []) };
+  }
+  // 'instructions' (also covers the legacy 'instruction' value written before the migration).
+  return { ...base, type: 'instructions', body: row.body ?? '' };
+}
+
+/**
+ * Turns blocks from the library (other studies) into new blocks for this study: new ids, labels made
+ * unique ("(copy)") against the study's blocks, and the source study's files referenced until the save
+ * copies them into this study's folder (see plannedCopies).
+ */
+export function importBlocks(
+  rows: BlockRow[],
+  existing: DraftBlock[],
+  signedUrls: Record<string, string> = {}
+): DraftBlock[] {
+  const stored = storedMedia(signedUrls);
+  const labels = existing.map((block) => block.label);
+  return rows.map((row) => {
+    const block = blockFromRow(row, stored);
+    const label = labels.includes(block.label) ? copyName(block.label, labels) : block.label;
+    labels.push(label);
+    return { ...block, id: createId(), label, random_group: '' };
+  });
+}
+
+/** A button icon from the library, as media for this study (copied into its folder on save). */
+export function importIcon(path: string, signedUrls: Record<string, string> = {}): StoredMedia {
+  return storedMedia(signedUrls)(path)!;
+}
+
+/** Inserts blocks so the first one lands at `at` (0 = start, blocks.length = end). */
+export function insertBlocks(blocks: DraftBlock[], added: DraftBlock[], at: number): DraftBlock[] {
+  const index = Math.max(0, Math.min(blocks.length, at));
+  return [...blocks.slice(0, index), ...added, ...blocks.slice(index)];
+}
+
+export function fromStudyRows(
+  study: StudyRow,
+  blocks: BlockRow[],
+  signedUrls: Record<string, string> = {}
+): StudyDraft {
+  const stored = storedMedia(signedUrls);
   const ordered = [...blocks].sort((a, b) => a.position - b.position);
   const randomization: RandomizationMode = study.randomized
     ? 'all'
@@ -425,22 +541,6 @@ export function fromStudyRows(
       audio_record: study.audio_record ?? false,
       camera_record: study.camera_record ?? false,
     },
-    blocks: ordered.map((row): DraftBlock => {
-      const base = { id: row.id, label: row.label, random_group: row.random_group ?? '' };
-      if (row.type === 'video') {
-        return {
-          ...base,
-          type: 'video',
-          media: stored(row.video_path, row.file_name),
-          title: row.title ?? '',
-          description: row.description ?? '',
-        };
-      }
-      if (row.type === 'survey') {
-        return { ...base, type: 'survey', prompt: row.prompt ?? '', options: textItems(row.options ?? []) };
-      }
-      // 'instructions' (also covers the legacy 'instruction' value written before the migration).
-      return { ...base, type: 'instructions', body: row.body ?? '' };
-    }),
+    blocks: ordered.map((row) => blockFromRow(row, stored)),
   };
 }

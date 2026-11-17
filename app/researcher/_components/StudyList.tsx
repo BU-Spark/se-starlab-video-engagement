@@ -134,14 +134,13 @@ export default function StudyList() {
               </thead>
               <tbody>
                 {state.studies.map((study) => {
-                  const locked = study.runCount > 0;
+                  const hasRuns = study.runCount > 0;
                   return (
                     <tr key={study.id}>
                       <td data-label="Study">
                         <Link href={'/researcher/studies/' + study.id + '/edit'} className={page.primaryCell}>
                           {study.name}
                         </Link>
-                        {locked && <span className={page.badge}>Locked</span>}
                       </td>
                       <td data-label="Blocks">{study.blockCount}</td>
                       <td data-label="Runs">
@@ -166,7 +165,7 @@ export default function StudyList() {
                             >
                               {busyId === study.id
                                 ? 'Deleting…'
-                                : locked
+                                : hasRuns
                                   ? 'Delete study + ' + study.runCount + ' run' + (study.runCount === 1 ? '' : 's')
                                   : 'Delete permanently'}
                             </button>
@@ -174,7 +173,7 @@ export default function StudyList() {
                         ) : (
                           <span className={page.actionGroup}>
                             <Link href={'/researcher/studies/' + study.id + '/edit'} className={page.linkButton}>
-                              {locked ? 'View' : 'Edit'}
+                              Edit
                             </Link>
                             <Link href={'/researcher/studies/' + study.id + '/data'} className={page.linkButton}>
                               View data
@@ -192,7 +191,7 @@ export default function StudyList() {
                               type="button"
                               className={page.dangerLink}
                               disabled={busyId !== null}
-                              title={locked ? 'Also deletes its participant runs and recordings.' : undefined}
+                              title={hasRuns ? 'Also deletes its participant runs and recordings.' : undefined}
                               aria-label={'Delete ' + study.name}
                               onClick={() => setConfirmDelete(study.id)}
                             >

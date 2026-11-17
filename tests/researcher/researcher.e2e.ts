@@ -43,36 +43,73 @@ test('1. The real page opens and its settings can be edited', async ({ page }) =
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
+const tiles = (page: Page) => page.getByRole('list', { name: 'Block order' }).getByRole('listitem');
+const editor = (page: Page) => page.getByRole('dialog');
+const closeEditor = (page: Page) => editor(page).getByRole('button', { name: 'Done', exact: true }).click();
+
 test('2. Real clicks add, edit, reorder and delete blocks without losing content', async ({ page }) => {
+  // A new block opens straight in the edit popup.
   await addBlock(page, 'Instructions');
-  await page.getByLabel('Instruction text', { exact: false }).fill('Watch the video, then answer the question.');
-  await addBlock(page, 'Survey');
+  await expect(editor(page)).toBeVisible();
   // blocks.label is required by the schema; new blocks get export-friendly defaults.
-  const labels = page.getByLabel('Block label', { exact: false });
-  await expect(labels).toHaveCount(2);
-  await expect(labels.nth(0)).toHaveValue('instruction1');
-  await expect(labels.nth(1)).toHaveValue('survey1');
-  await labels.nth(1).fill('engagement rating');
+  await expect(page.getByLabel('Block label', { exact: false })).toHaveValue('instruction1');
+  await page.getByLabel('Instruction text', { exact: false }).fill('Watch the video, then answer the question.');
+  await closeEditor(page);
+  await expect(editor(page)).toHaveCount(0);
+
+  await addBlock(page, 'Survey');
+  await expect(page.getByLabel('Block label', { exact: false })).toHaveValue('survey1');
+  await page.getByLabel('Block label', { exact: false }).fill('engagement rating');
   await page.getByLabel('Survey question', { exact: false }).fill('Was the video engaging?');
-  await page.getByRole('button', { name: 'Move block 2 up', exact: true }).click();
-  await expect(page.getByRole('article').nth(0)).toHaveAttribute('aria-label', 'Block 1: Survey');
+  await page.keyboard.press('Escape');
+  await expect(editor(page)).toHaveCount(0);
+
+  // The grid shows each block's essentials without opening it.
+  await expect(tiles(page)).toHaveCount(2);
+  await expect(tiles(page).nth(0)).toContainText('Watch the video, then answer the question.');
+  await expect(tiles(page).nth(1)).toContainText('engagement rating');
+  await expect(tiles(page).nth(1)).toContainText('Was the video engaging?');
+
+  await page.getByRole('button', { name: 'Move block 2 earlier', exact: true }).click();
+  await expect(tiles(page).nth(0)).toHaveAttribute('aria-label', 'Block 1: Survey');
+  await expect(page.getByRole('button', { name: 'Move block 1 earlier', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Move block 2 later', exact: true })).toBeDisabled();
+
+  await page.getByRole('button', { name: 'Edit block 1', exact: true }).click();
   await expect(page.getByLabel('Survey question', { exact: false })).toHaveValue('Was the video engaging?');
-  await expect(page.getByLabel('Block label', { exact: false }).nth(0)).toHaveValue('engagement rating');
-  await expect(page.getByLabel('Instruction text', { exact: false })).toHaveValue(
-    'Watch the video, then answer the question.'
-  );
-  await expect(page.getByRole('button', { name: 'Move block 1 up', exact: true })).toBeDisabled();
-  await expect(page.getByRole('button', { name: 'Move block 2 down', exact: true })).toBeDisabled();
+  await expect(page.getByLabel('Block label', { exact: false })).toHaveValue('engagement rating');
+  await closeEditor(page);
+
+  // Drag the instructions tile onto the left half of the survey tile: it moves in front of it.
+  await tiles(page)
+    .nth(1)
+    .dragTo(tiles(page).nth(0), { targetPosition: { x: 12, y: 80 } });
+  await expect(tiles(page).nth(0)).toHaveAttribute('aria-label', 'Block 1: Instructions');
+  await expect(tiles(page).nth(1)).toHaveAttribute('aria-label', 'Block 2: Survey');
 
   await page.getByRole('button', { name: 'Delete block 1', exact: true }).click();
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
-  await expect(page.getByRole('article')).toHaveCount(2);
+  await expect(tiles(page)).toHaveCount(2);
   await page.getByRole('button', { name: 'Delete block 1', exact: true }).click();
   await page.getByRole('button', { name: 'Delete block', exact: true }).click();
-  await expect(page.getByRole('article')).toHaveCount(1);
-  await expect(page.getByLabel('Instruction text', { exact: false })).toHaveValue(
-    'Watch the video, then answer the question.'
-  );
+  await expect(tiles(page)).toHaveCount(1);
+  await page.getByRole('button', { name: 'Edit block 1', exact: true }).click();
+  await expect(page.getByLabel('Survey question', { exact: false })).toHaveValue('Was the video engaging?');
+  await closeEditor(page);
+
+  // Duplicate puts an editable copy right after the block.
+  await page.getByRole('button', { name: 'Duplicate block 1', exact: true }).click();
+  await expect(tiles(page)).toHaveCount(2);
+  await expect(tiles(page).nth(1)).toContainText('engagement rating (copy)');
+  await expect(tiles(page).nth(1)).toContainText('Was the video engaging?');
+  await page.getByRole('button', { name: 'Delete block 2', exact: true }).click();
+  await page.getByRole('button', { name: 'Delete block', exact: true }).click();
+
+  // Done closes the popup on the first click even with a required field left empty; the tile flags it.
+  await addBlock(page, 'Instructions');
+  await closeEditor(page);
+  await expect(editor(page)).toHaveCount(0);
+  await expect(tiles(page).nth(1)).toContainText('Needs attention');
 });
 
 test('3. A local video really loads and plays in the browser', async ({ page }) => {
@@ -82,7 +119,7 @@ test('3. A local video really loads and plays in the browser', async ({ page }) 
   await expect(page.getByText('Choose a non-empty video file.', { exact: true })).toBeVisible();
 
   await input.setInputFiles(fixture('stimulus.webm'));
-  await expect(page.getByText('stimulus.webm', { exact: true })).toBeVisible();
+  await expect(editor(page).getByText('stimulus.webm', { exact: true })).toBeVisible();
   await expect(page.getByText(/^\d+\.\d MB$/)).toBeVisible();
   // The generated label is replaced by the file name, which becomes the stimulus name in exports.
   await expect(page.getByLabel('Block label', { exact: false })).toHaveValue('stimulus.webm');
@@ -95,8 +132,10 @@ test('3. A local video really loads and plays in the browser', async ({ page }) 
   await expect(video).toHaveJSProperty('paused', true);
   await page.getByRole('button', { name: 'Remove video', exact: true }).click();
   await expect(video).toHaveCount(0);
+  await closeEditor(page);
+  await expect(tiles(page).nth(0)).toContainText('No video chosen yet');
   await page.reload();
-  await expect(page.getByRole('article')).toHaveCount(0);
+  await expect(tiles(page)).toHaveCount(0);
 });
 
 test('4. Navigation reaches the study list, which explains that Supabase is needed', async ({ page }) => {
@@ -116,4 +155,12 @@ test('5. The sign-in page says sign-in needs Supabase and links to the local pre
   await page.getByRole('link', { name: 'Open the local preview' }).click();
   await expect(page).toHaveURL(/\/researcher\/studies$/);
   await expect(page.getByRole('button', { name: 'Sign out' })).toHaveCount(0);
+});
+
+test('6. The block library tab opens, and importing needs Supabase', async ({ page }) => {
+  await expect(page.getByRole('button', { name: 'Import from library', exact: true })).toBeDisabled();
+  await page.getByRole('link', { name: 'Block library', exact: true }).click();
+  await expect(page).toHaveURL(/\/researcher\/library$/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Block library.');
+  await expect(page.getByText('Supabase is not configured', { exact: true })).toBeVisible();
 });

@@ -4,6 +4,12 @@ import {
   createBlock,
   createStudy,
   fromStudyRows,
+  importBlocks,
+  importIcon,
+  insertBlocks,
+  plannedCopies,
+  moveBlockTo,
+  duplicateBlock,
   plannedUploads,
   toStudyRows,
   validateStudy,
@@ -278,4 +284,109 @@ test('copyStudyRows gives the copy new ids and its own copies of every file', ()
   ].filter(Boolean);
   expect(copy.files.map((file) => file.from).sort()).toEqual([...originalPaths].sort());
   for (const file of copy.files) expect(file.to.startsWith(NEW_ID + '/')).toBe(true);
+});
+
+describe('moveBlockTo', () => {
+  const blocks = (['instructions', 'video', 'survey', 'instructions'] as const).reduce<DraftBlock[]>(
+    (list, type) => [...list, createBlock(type, list)],
+    []
+  );
+  const order = (list: DraftBlock[]) => list.map((block) => blocks.indexOf(block));
+
+  it('moves a block forward or backward to the given position', () => {
+    expect(order(moveBlockTo(blocks, blocks[0].id, 2))).toEqual([1, 2, 0, 3]);
+    expect(order(moveBlockTo(blocks, blocks[3].id, 0))).toEqual([3, 0, 1, 2]);
+  });
+
+  it('clamps the position and ignores unknown ids', () => {
+    expect(order(moveBlockTo(blocks, blocks[1].id, 99))).toEqual([0, 2, 3, 1]);
+    expect(moveBlockTo(blocks, 'missing', 0)).toBe(blocks);
+    expect(moveBlockTo(blocks, blocks[2].id, 2)).toBe(blocks);
+  });
+});
+
+describe('duplicateBlock', () => {
+  it('inserts a copy right after the block with a new id, a unique label and new option ids', () => {
+    const survey = { ...createBlock('survey'), label: 'rating', prompt: 'Enjoyed it?' } as DraftBlock;
+    const blocks = [createBlock('instructions'), survey, createBlock('video')];
+    const first = duplicateBlock(blocks, survey.id, (media) => media);
+    expect(first.blocks.map((block) => block.label)).toEqual(['instruction1', 'rating', 'rating (copy)', 'video1']);
+    const copy = first.blocks[2];
+    expect(copy.id).not.toBe(survey.id);
+    expect(copy.type === 'survey' && copy.prompt).toBe('Enjoyed it?');
+    if (copy.type === 'survey' && survey.type === 'survey') {
+      expect(copy.options.map((o) => o.label)).toEqual(survey.options.map((o) => o.label));
+      expect(copy.options.some((o, i) => o.id === survey.options[i].id)).toBe(false);
+    }
+    // Copying again picks the next free label.
+    expect(duplicateBlock(first.blocks, survey.id, (media) => media).copy?.label).toBe('rating (copy 2)');
+  });
+
+  it('gives a video copy its own media entry', () => {
+    const video = createBlock('video');
+    const media = {
+      kind: 'stored',
+      id: 'm1',
+      path: 's/videos/a.mp4',
+      name: 'a.mp4',
+      url: null,
+      status: 'ready',
+    } as const;
+    const withMedia = { ...video, media } as DraftBlock;
+    const { copy } = duplicateBlock([withMedia], video.id, (m) => ({ ...m, id: 'm2' }));
+    expect(copy?.type === 'video' && copy.media).toEqual({ ...media, id: 'm2' });
+  });
+});
+
+describe('library import', () => {
+  const OTHER_ID = '00000000-0000-4000-8000-0000000000ff';
+  // Rows as another study saved them.
+  function otherStudyRows() {
+    const draft = readyDraft();
+    draft.settings.right_button_icon = media('yes.png', 'image/png');
+    const paths = Object.fromEntries(plannedUploads(draft, OTHER_ID).map((u) => [u.media.id, u.path]));
+    return toStudyRows(draft, OTHER_ID, paths);
+  }
+
+  it('turns blocks from another study into new blocks with unique labels and no random group', () => {
+    const { blocks: rows } = otherStudyRows();
+    const existing = [{ ...createBlock('instructions'), label: 'instruction1' }];
+    const imported = importBlocks(
+      rows.map((row) => ({ ...row, random_group: 'A', created_at: NOW }) as never),
+      existing,
+      { [rows[1].video_path!]: 'https://signed/clip' }
+    );
+    expect(imported.map((block) => block.type)).toEqual(['instructions', 'video', 'survey']);
+    expect(imported.map((block) => block.label)).toEqual(['instruction1 (copy)', 'clip one.mp4', 'survey1']);
+    expect(imported.every((block, i) => block.id !== rows[i].id && block.random_group === '')).toBe(true);
+    expect(imported[1].type === 'video' && imported[1].media).toMatchObject({
+      kind: 'stored',
+      path: rows[1].video_path,
+      url: 'https://signed/clip',
+    });
+  });
+
+  it('inserts imported blocks at the start, the end or after a block', () => {
+    const blocks = [createBlock('instructions'), createBlock('survey')];
+    const added = [createBlock('video')];
+    expect(insertBlocks(blocks, added, 0)[0]).toBe(added[0]);
+    expect(insertBlocks(blocks, added, 1)[1]).toBe(added[0]);
+    expect(insertBlocks(blocks, added, 99)[2]).toBe(added[0]);
+  });
+
+  it("copies another study's files into this study's folder when saving", () => {
+    const { study, blocks: rows } = otherStudyRows();
+    const draft = readyDraft();
+    draft.blocks = importBlocks(rows as never, [], {});
+    draft.settings.right_button_icon = importIcon(study.right_button_icon_path!);
+    const copies = plannedCopies(draft, STUDY_ID);
+    expect(copies.map((copy) => copy.media.path)).toEqual([study.right_button_icon_path, rows[1].video_path]);
+    expect(copies.every((copy) => copy.to.startsWith(STUDY_ID + '/'))).toBe(true);
+    // The saved rows point at the copies, not at the other study's files.
+    const saved = toStudyRows(draft, STUDY_ID, Object.fromEntries(copies.map((c) => [c.media.id, c.to])));
+    expect(saved.study.right_button_icon_path).toBe(copies[0].to);
+    expect(saved.blocks[1].video_path).toBe(copies[1].to);
+    // Files already in this study's folder are not copied again.
+    expect(plannedCopies(draft, OTHER_ID)).toEqual([]);
+  });
 });

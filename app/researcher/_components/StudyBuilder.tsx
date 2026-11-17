@@ -1,9 +1,17 @@
 'use client';
 
+import { clsx } from 'clsx';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import Icon, { type IconName } from './Icon';
+import BlockLibrary, {
+  blockInfo,
+  PositionSelect,
+  clearImport,
+  peekImport,
+  type LibrarySelection,
+} from './BlockLibrary';
+import Icon from './Icon';
 import ResearcherShell from './ResearcherShell';
 import {
   buttonKeys,
@@ -13,6 +21,11 @@ import {
   isGeneratedLabel,
   mediaName,
   moveBlock,
+  moveBlockTo,
+  duplicateBlock,
+  importBlocks,
+  importIcon,
+  insertBlocks,
   validateStudy,
   type BlockType,
   type ButtonSide,
@@ -24,12 +37,12 @@ import {
 import {
   createStudyInSupabase,
   deleteStudy,
-  duplicateStudy,
   getSupabase,
   SaveStudyError,
   updateStudyInSupabase,
   type LoadedStudy,
   type SaveProgress,
+  loadImport,
 } from './study-repository';
 import styles from './StudyBuilder.module.css';
 
@@ -52,12 +65,6 @@ function progressText(progress: SaveProgress): string {
   if (progress.stage === 'saving') return 'Saving study…';
   return 'Uploading files ' + Math.min(progress.done + 1, progress.total) + ' of ' + progress.total + '…';
 }
-
-const blockInfo: Record<BlockType, { title: string; icon: IconName }> = {
-  instructions: { title: 'Instructions', icon: 'text' },
-  video: { title: 'Video', icon: 'video' },
-  survey: { title: 'Survey', icon: 'survey' },
-};
 
 function Toggle({
   label,
@@ -103,7 +110,14 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [showBlockPicker, setShowBlockPicker] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
-  const [focusBlock, setFocusBlock] = useState<string | null>(null);
+  const [showLibrary, setShowLibrary] = useState(false);
+  const [importAt, setImportAt] = useState<number | null>(null);
+  const [importNotice, setImportNotice] = useState<string | null>(null);
+  // The block open in the edit popup.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  // Drag-and-drop in the block grid: the dragged block and where it would land.
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<{ id: string; side: 'before' | 'after' } | null>(null);
   const [fileErrors, setFileErrors] = useState<Record<string, string>>({});
   const [serverErrors, setServerErrors] = useState<Record<string, string>>({});
   const [saveState, setSaveState] = useState<SaveState>(
@@ -111,7 +125,6 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
   );
   const [confirmStudyDelete, setConfirmStudyDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [duplicating, setDuplicating] = useState(false);
   const [supabase] = useState(getSupabase);
   const previewUrls = useRef(new Set<string>());
   const addButton = useRef<HTMLButtonElement>(null);
@@ -121,9 +134,10 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
     ...serverErrors,
   };
   const saving = saveState.status === 'saving';
-  const lockedByRuns = !!edit && edit.loaded.runCount > 0;
+  // Studies stay editable after participants have run them; only blocks with data can't be removed.
+  const runCount = edit?.loaded.runCount ?? 0;
   // A created study locks until "Create another"; an edited one stays editable after saving.
-  const locked = saving || deleting || lockedByRuns || (!edit && saveState.status === 'saved');
+  const locked = saving || deleting || (!edit && saveState.status === 'saved');
 
   useEffect(() => {
     const urls = previewUrls.current;
@@ -143,16 +157,44 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
     return () => window.removeEventListener('beforeunload', warn);
   }, [dirty]);
 
+  // An import chosen on the Block library tab for this study (or for a new one).
   useEffect(() => {
-    if (!focusBlock) return;
-    const card = document.getElementById('block-' + focusBlock);
-    (card?.querySelector<HTMLElement>('textarea') ?? card?.querySelector<HTMLElement>('input'))?.focus();
-    card?.scrollIntoView?.({
-      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
-      block: 'nearest',
-    });
-    setFocusBlock(null);
-  }, [focusBlock]);
+    if (!supabase) return;
+    const pending = peekImport(edit ? edit.loaded.study.id : 'new');
+    if (!pending) return;
+    let mounted = true;
+    const icons = { right: pending.likeIcon, left: pending.dislikeIcon };
+    loadImport(
+      supabase,
+      pending.blockIds,
+      [icons.right, icons.left].filter((path): path is string => !!path)
+    )
+      .then(({ blocks, signedUrls }) => {
+        // An editor that was replaced meanwhile leaves the import queued for the one that replaced it.
+        if (!mounted) return;
+        clearImport();
+        applyImport(blocks, icons, pending.at, signedUrls);
+      })
+      .catch((error) => {
+        if (!mounted) return;
+        clearImport();
+        setSaveState({
+          status: 'error',
+          message: error instanceof Error ? error.message : 'Could not import from the library.',
+        });
+      });
+    return () => {
+      mounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once, on the draft the page opened with
+  }, [supabase]);
+
+  // Focus the first field when the edit popup opens.
+  useEffect(() => {
+    if (!editingId) return;
+    const dialog = document.getElementById('block-editor');
+    (dialog?.querySelector<HTMLElement>('textarea') ?? dialog?.querySelector<HTMLElement>('input'))?.focus();
+  }, [editingId]);
 
   function update(change: (current: StudyDraft) => StudyDraft) {
     setDraft(change);
@@ -237,7 +279,20 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
     const block = createBlock(type, draft.blocks);
     update((current) => ({ ...current, blocks: [...current.blocks, block] }));
     setShowBlockPicker(false);
-    setFocusBlock(block.id);
+    setEditingId(block.id);
+  }
+
+  function copyBlock(block: DraftBlock) {
+    // A local file gets its own preview URL, so removing one copy's video never breaks the other's.
+    const copyMedia = (media: Media): Media => {
+      if (media.kind !== 'local') return { ...media, id: createId() };
+      const url = URL.createObjectURL(media.file);
+      previewUrls.current.add(url);
+      return { ...media, id: createId(), url, status: 'loading' };
+    };
+    // Copied outside the state updater so the preview URL is created exactly once.
+    const { blocks } = duplicateBlock(draft.blocks, block.id, copyMedia);
+    update((current) => ({ ...current, blocks }));
   }
 
   function removeBlock(block: DraftBlock) {
@@ -271,6 +326,12 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
     if (Object.keys(problems).length) {
       setTouched((current) => ({ ...current, ...Object.fromEntries(Object.keys(problems).map((key) => [key, true])) }));
       setSaveState({ status: 'error', message: 'Fix the highlighted fields before saving.' });
+      // If only blocks have problems, open the first one so its fields are visible.
+      const keys = Object.keys(problems);
+      const firstBlock = draft.blocks.find((block) => keys.some((key) => belongsToBlock(block, key)));
+      if (firstBlock && keys.every((key) => draft.blocks.some((block) => belongsToBlock(block, key)))) {
+        setEditingId(firstBlock.id);
+      }
       return;
     }
     setServerErrors({});
@@ -310,21 +371,6 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
     setSaveState({ status: 'idle' });
   }
 
-  async function duplicateThisStudy() {
-    if (!edit || !supabase) return;
-    setDuplicating(true);
-    try {
-      const copy = await duplicateStudy(supabase, edit.loaded.study.id);
-      router.push('/researcher/studies/' + copy.id + '/edit');
-    } catch (error) {
-      setDuplicating(false);
-      setSaveState({
-        status: 'error',
-        message: error instanceof Error ? error.message : 'Could not duplicate the study.',
-      });
-    }
-  }
-
   async function removeStudy() {
     if (!edit || !supabase) return;
     setDeleting(true);
@@ -353,6 +399,362 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
     window.scrollTo?.({ top: 0 });
   }
 
+  function belongsToBlock(block: DraftBlock, key: string) {
+    return (
+      key.startsWith(block.id + '.') ||
+      (block.type === 'survey' && block.options.some((option) => key.startsWith(option.id + '.')))
+    );
+  }
+
+  /** Adds library blocks at `at` and uses library icons for the Like/Dislike buttons. */
+  function applyImport(
+    rows: LibrarySelection['blocks'],
+    icons: { right?: string; left?: string },
+    at: number,
+    signedUrls: Record<string, string>
+  ) {
+    const added = importBlocks(rows, draft.blocks, signedUrls);
+    const iconChange: Partial<StudyDraft['settings']> = {};
+    for (const side of ['right', 'left'] as const) {
+      const path = icons[side];
+      if (!path) continue;
+      release(draft.settings[side === 'right' ? 'right_button_icon' : 'left_button_icon']);
+      iconChange[side === 'right' ? 'right_button_icon' : 'left_button_icon'] = importIcon(path, signedUrls);
+    }
+    update((current) => ({
+      ...current,
+      blocks: insertBlocks(current.blocks, added, at),
+      settings: { ...current.settings, ...iconChange },
+    }));
+    const iconCount = Object.keys(iconChange).length;
+    const parts = [
+      added.length ? added.length + ' block' + (added.length === 1 ? '' : 's') : '',
+      iconCount ? iconCount + ' button icon' + (iconCount === 1 ? '' : 's') : '',
+    ].filter(Boolean);
+    setImportNotice('Imported ' + parts.join(' and ') + ' from the library. Review them, then select Save.');
+  }
+
+  /** Closes the edit popup; anything missing in that block then shows on its tile. */
+  function closeEditor() {
+    const block = draft.blocks.find((item) => item.id === editingId);
+    if (block) {
+      const missing = Object.keys(validateStudy(draft)).filter((key) => belongsToBlock(block, key));
+      setTouched((current) => ({ ...current, ...Object.fromEntries(missing.map((key) => [key, true])) }));
+    }
+    setEditingId(null);
+  }
+
+  function blockHasErrors(block: DraftBlock) {
+    return Object.keys(errors).some((key) => belongsToBlock(block, key));
+  }
+
+  /** Drops the dragged block before or after the block it was released on. */
+  function dropBlock(id: string, targetId: string, side: 'before' | 'after') {
+    if (id === targetId) return;
+    update((current) => {
+      const from = current.blocks.findIndex((block) => block.id === id);
+      let to = current.blocks.findIndex((block) => block.id === targetId) + (side === 'after' ? 1 : 0);
+      if (from < to) to -= 1;
+      return { ...current, blocks: moveBlockTo(current.blocks, id, to) };
+    });
+  }
+
+  /** What a block tile in the grid shows: the essentials, read-only. */
+  function blockSummary(block: DraftBlock) {
+    return (
+      <>
+        <strong className={styles.tileLabel}>{block.label.trim() || 'Untitled block'}</strong>
+        {block.type === 'instructions' && (
+          <span className={styles.tileText}>{block.body.trim() || 'No instruction text yet'}</span>
+        )}
+        {block.type === 'video' &&
+          (block.media ? (
+            <>
+              {block.media.url && (
+                <video
+                  className={styles.tileVideo}
+                  src={block.media.url + '#t=0.1'}
+                  preload="metadata"
+                  muted
+                  playsInline
+                  aria-hidden="true"
+                  tabIndex={-1}
+                />
+              )}
+              <span className={styles.tileMeta}>{mediaName(block.media)}</span>
+              {block.title.trim() && <span className={styles.tileText}>{block.title.trim()}</span>}
+            </>
+          ) : (
+            <span className={styles.tileText}>No video chosen yet</span>
+          ))}
+        {block.type === 'survey' && (
+          <>
+            <span className={styles.tileText}>{block.prompt.trim() || 'No question yet'}</span>
+            <span className={styles.tileChips}>
+              {block.options.map((option, i) => (
+                <span key={option.id} className={styles.tileChip}>
+                  {option.label.trim() || 'Option ' + (i + 1)}
+                </span>
+              ))}
+            </span>
+          </>
+        )}
+        {draft.settings.randomization === 'groups' && block.random_group.trim() && (
+          <span className={styles.tileMeta}>Random group {block.random_group.trim()}</span>
+        )}
+      </>
+    );
+  }
+
+  /** The full editor for one block, shown in the edit popup. */
+  function blockEditor(block: DraftBlock, index: number) {
+    const inputError = (key: string) => errors[block.id + '.' + key];
+    return (
+      <div className={styles.blockBody}>
+        <div className={styles.blockMeta}>
+          <div className={styles.field}>
+            <label htmlFor={block.id + '-label'}>
+              Block label <span className={styles.required}>*</span>
+            </label>
+            <input
+              id={block.id + '-label'}
+              value={block.label}
+              autoComplete="off"
+              onChange={(e) => updateBlock(block.id, (b) => ({ ...b, label: e.target.value }))}
+              aria-invalid={!!inputError('label')}
+              aria-describedby={inputError('label') ? block.id + '-label-error' : undefined}
+            />
+            <FieldError id={block.id + '-label-error'} message={inputError('label')} />
+          </div>
+          {draft.settings.randomization === 'groups' && (
+            <div className={styles.field}>
+              <label htmlFor={block.id + '-group'}>Random group</label>
+              <input
+                id={block.id + '-group'}
+                value={block.random_group}
+                placeholder="e.g. A (blank = fixed)"
+                autoComplete="off"
+                onChange={(e) => updateBlock(block.id, (b) => ({ ...b, random_group: e.target.value }))}
+              />
+            </div>
+          )}
+        </div>
+        {block.type === 'instructions' && (
+          <div className={styles.field}>
+            <label htmlFor={block.id + '-body'}>
+              Instruction text <span className={styles.required}>*</span>
+            </label>
+            <textarea
+              id={block.id + '-body'}
+              rows={4}
+              value={block.body}
+              placeholder="Tell participants what to expect and how to proceed…"
+              onChange={(e) =>
+                updateBlock(block.id, (b) => (b.type === 'instructions' ? { ...b, body: e.target.value } : b))
+              }
+              aria-invalid={!!inputError('body')}
+              aria-describedby={inputError('body') ? block.id + '-body-error' : undefined}
+            />
+            <FieldError id={block.id + '-body-error'} message={inputError('body')} />
+          </div>
+        )}
+
+        {block.type === 'video' && (
+          <>
+            <div className={styles.fieldLabel}>
+              Video stimulus <span className={styles.required}>*</span>
+            </div>
+            <label className={styles.videoPicker}>
+              <span className={styles.uploadIcon}>
+                <Icon name="upload" size={23} />
+              </span>
+              <strong>{block.media ? 'Replace video' : 'Choose a video file'}</strong>
+              <span className={styles.browseLabel}>Browse files</span>
+              <input
+                type="file"
+                className={styles.fileInput}
+                accept="video/*"
+                aria-label={'Video file for block ' + (index + 1)}
+                aria-invalid={!!inputError('media')}
+                onChange={(e) => {
+                  selectMedia(e.target.files?.[0], 'video', block.id + '.media', block.media, (media) =>
+                    updateBlock(block.id, (b) =>
+                      b.type === 'video'
+                        ? {
+                            ...b,
+                            media,
+                            label:
+                              media &&
+                              (isGeneratedLabel(b.label, 'video') || (b.media && b.label === mediaName(b.media)))
+                                ? mediaName(media)
+                                : b.label,
+                          }
+                        : b
+                    )
+                  );
+                  e.target.value = '';
+                }}
+              />
+            </label>
+            {block.media && (
+              <div className={styles.videoPreview}>
+                {block.media.url && (
+                  <video
+                    key={block.media.id}
+                    src={block.media.url}
+                    controls
+                    preload="metadata"
+                    playsInline
+                    aria-label={'Video preview for block ' + (index + 1)}
+                    onLoadedMetadata={() => markMedia(block.media!.id, 'ready')}
+                    onError={() => markMedia(block.media!.id, 'error')}
+                  />
+                )}
+                <div className={styles.mediaDetails}>
+                  <div>
+                    <strong>{mediaName(block.media)}</strong>
+                    {block.media.kind === 'local' && (
+                      <span>{(block.media.file.size / 1024 / 1024).toFixed(1) + ' MB'}</span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className={styles.textButton}
+                    onClick={() => {
+                      release(block.media);
+                      clearFileError(block.id + '.media');
+                      updateBlock(block.id, (b) => (b.type === 'video' ? { ...b, media: null } : b));
+                    }}
+                  >
+                    Remove video
+                  </button>
+                </div>
+              </div>
+            )}
+            <FieldError
+              id={block.id + '-media-error'}
+              message={
+                inputError('media') ||
+                (block.media?.kind === 'local' && block.media.status === 'error'
+                  ? 'This browser cannot play the video. Choose another file.'
+                  : undefined)
+              }
+            />
+            <div className={styles.captionFields}>
+              <div className={styles.field}>
+                <label htmlFor={block.id + '-title'}>Caption title</label>
+                <input
+                  id={block.id + '-title'}
+                  value={block.title}
+                  placeholder="Optional"
+                  autoComplete="off"
+                  onChange={(e) =>
+                    updateBlock(block.id, (b) => (b.type === 'video' ? { ...b, title: e.target.value } : b))
+                  }
+                />
+              </div>
+              <div className={styles.field}>
+                <label htmlFor={block.id + '-description'}>Caption text</label>
+                <textarea
+                  id={block.id + '-description'}
+                  rows={2}
+                  value={block.description}
+                  placeholder="Optional"
+                  onChange={(e) =>
+                    updateBlock(block.id, (b) => (b.type === 'video' ? { ...b, description: e.target.value } : b))
+                  }
+                />
+              </div>
+            </div>
+          </>
+        )}
+
+        {block.type === 'survey' && (
+          <>
+            <div className={styles.field}>
+              <label htmlFor={block.id + '-prompt'}>
+                Survey question <span className={styles.required}>*</span>
+              </label>
+              <textarea
+                id={block.id + '-prompt'}
+                rows={2}
+                value={block.prompt}
+                placeholder="e.g. How much did you enjoy this video?"
+                onChange={(e) =>
+                  updateBlock(block.id, (b) => (b.type === 'survey' ? { ...b, prompt: e.target.value } : b))
+                }
+                aria-invalid={!!inputError('prompt')}
+                aria-describedby={inputError('prompt') ? block.id + '-prompt-error' : undefined}
+              />
+              <FieldError id={block.id + '-prompt-error'} message={inputError('prompt')} />
+            </div>
+            <div className={styles.optionsHeading}>
+              <span className={styles.fieldLabel}>Response options</span>
+            </div>
+            <div className={styles.optionList}>
+              {block.options.map((option, optionIndex) => (
+                <div key={option.id}>
+                  <div className={styles.optionRow}>
+                    <span className={styles.optionBubble}>{optionIndex + 1}</span>
+                    <label className={styles.srOnly} htmlFor={option.id}>
+                      Option {optionIndex + 1} for block {index + 1}
+                    </label>
+                    <input
+                      id={option.id}
+                      value={option.label}
+                      placeholder="Response label"
+                      onChange={(e) =>
+                        updateBlock(block.id, (b) =>
+                          b.type === 'survey'
+                            ? {
+                                ...b,
+                                options: b.options.map((o) =>
+                                  o.id === option.id ? { ...o, label: e.target.value } : o
+                                ),
+                              }
+                            : b
+                        )
+                      }
+                      aria-invalid={!!errors[option.id + '.label']}
+                      aria-describedby={errors[option.id + '.label'] ? option.id + '-error' : undefined}
+                    />
+                    <button
+                      className={styles.iconButton}
+                      type="button"
+                      disabled={block.options.length <= 2}
+                      aria-label={'Remove option ' + (optionIndex + 1) + ' from block ' + (index + 1)}
+                      onClick={() =>
+                        updateBlock(block.id, (b) =>
+                          b.type === 'survey' ? { ...b, options: b.options.filter((o) => o.id !== option.id) } : b
+                        )
+                      }
+                    >
+                      <Icon name="close" size={16} />
+                    </button>
+                  </div>
+                  <FieldError id={option.id + '-error'} message={errors[option.id + '.label']} />
+                </div>
+              ))}
+            </div>
+            <FieldError id={block.id + '-options-error'} message={inputError('options')} />
+            <button
+              type="button"
+              className={styles.textButton}
+              onClick={() =>
+                updateBlock(block.id, (b) =>
+                  b.type === 'survey' ? { ...b, options: [...b.options, { id: createId(), label: '' }] } : b
+                )
+              }
+            >
+              <Icon name="plus" size={15} />
+              Add response option
+            </button>
+          </>
+        )}
+      </div>
+    );
+  }
+
   function saveButton() {
     return (
       <button className={styles.primaryButton} type="button" disabled={!supabase || locked} onClick={save}>
@@ -377,6 +779,9 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
       </div>
     );
   }
+
+  const editingIndex = draft.blocks.findIndex((block) => block.id === editingId);
+  const editingBlock = editingIndex >= 0 ? draft.blocks[editingIndex] : null;
 
   const statusLabel =
     saveState.status === 'saving'
@@ -434,20 +839,13 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
             <p>{saveState.message}</p>
           </div>
         )}
-        {lockedByRuns && edit && (
+        {runCount > 0 && edit && (
           <div className={styles.lockNotice} role="note">
             <Icon name="info" size={17} />
             <p>
-              Read-only · {edit.loaded.runCount} participant run{edit.loaded.runCount === 1 ? '' : 's'}
+              {runCount} participant run{runCount === 1 ? '' : 's'} · Changes apply to the next participants. Blocks
+              that already have participant data can be edited but not removed.
             </p>
-            <button
-              type="button"
-              className={styles.secondaryButton}
-              disabled={!supabase || duplicating}
-              onClick={() => void duplicateThisStudy()}
-            >
-              {duplicating ? 'Duplicating…' : 'Duplicate to edit'}
-            </button>
             <Link className={styles.secondaryButton} href={'/researcher/studies/' + edit.loaded.study.id + '/data'}>
               View data
             </Link>
@@ -548,7 +946,7 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
                   />
                   <fieldset disabled={!draft.settings.show_response_buttons} className={styles.buttonSettings}>
                     <legend className={styles.srOnly}>Customize response buttons</legend>
-                    {(['left', 'right'] as const).map((side) => {
+                    {(['right', 'left'] as const).map((side) => {
                       const value = {
                         label: draft.settings[buttonKeys[side].text],
                         icon: draft.settings[buttonKeys[side].icon],
@@ -664,17 +1062,40 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
                   </h2>
                 </div>
               </div>
-              <button
-                ref={addButton}
-                className={styles.secondaryButton}
-                type="button"
-                onClick={() => setShowBlockPicker((shown) => !shown)}
-                aria-expanded={showBlockPicker || !draft.blocks.length}
-              >
-                <Icon name="plus" size={16} />
-                Add block
-              </button>
+              <div className={styles.blockActions}>
+                <button
+                  ref={addButton}
+                  className={styles.secondaryButton}
+                  type="button"
+                  onClick={() => setShowBlockPicker((shown) => !shown)}
+                  aria-expanded={showBlockPicker || !draft.blocks.length}
+                >
+                  <Icon name="plus" size={16} />
+                  Add block
+                </button>
+                <button
+                  className={styles.secondaryButton}
+                  type="button"
+                  disabled={!supabase || locked}
+                  onClick={() => {
+                    setImportAt(null);
+                    setShowLibrary(true);
+                  }}
+                >
+                  <Icon name="copy" size={16} />
+                  Import from library
+                </button>
+              </div>
             </div>
+            {importNotice && (
+              <div className={styles.saveSuccess} role="status">
+                <Icon name="copy" size={17} />
+                <p>{importNotice}</p>
+                <button type="button" className={styles.secondaryButton} onClick={() => setImportNotice(null)}>
+                  OK
+                </button>
+              </div>
+            )}
 
             {!draft.blocks.length && (
               <div className={styles.emptyState}>
@@ -687,21 +1108,53 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
             {draft.blocks.length > 0 && showBlockPicker && blockPicker()}
             <FieldError id="blocks-error" message={errors.blocks} />
 
-            <div className={styles.blockList}>
+            <ol className={styles.blockGrid} aria-label="Block order">
               {draft.blocks.map((block, index) => {
                 const info = blockInfo[block.type];
-                const inputError = (key: string) => errors[block.id + '.' + key];
+                const needsAttention = blockHasErrors(block);
                 return (
-                  <article
-                    className={styles.blockCard}
-                    id={'block-' + block.id}
+                  <li
                     key={block.id}
+                    id={'block-' + block.id}
+                    className={clsx(
+                      styles.blockTile,
+                      dragId === block.id && styles.dragging,
+                      dropTarget?.id === block.id && dropTarget.side === 'before' && styles.dropBefore,
+                      dropTarget?.id === block.id && dropTarget.side === 'after' && styles.dropAfter
+                    )}
                     aria-label={'Block ' + (index + 1) + ': ' + info.title}
+                    draggable={!locked}
+                    onDragStart={(e) => {
+                      e.dataTransfer.effectAllowed = 'move';
+                      e.dataTransfer.setData('text/plain', block.id);
+                      setDragId(block.id);
+                    }}
+                    onDragOver={(e) => {
+                      if (!dragId) return;
+                      e.preventDefault();
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const side = e.clientX < rect.left + rect.width / 2 ? 'before' : 'after';
+                      if (dropTarget?.id !== block.id || dropTarget.side !== side)
+                        setDropTarget({ id: block.id, side });
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (dragId && dropTarget) dropBlock(dragId, dropTarget.id, dropTarget.side);
+                      setDragId(null);
+                      setDropTarget(null);
+                    }}
+                    onDragEnd={() => {
+                      setDragId(null);
+                      setDropTarget(null);
+                    }}
                   >
-                    <div className={styles.blockCardHeader}>
+                    <div className={styles.tileHeader}>
+                      <span className={styles.dragHandle} title="Drag to reorder" aria-hidden="true">
+                        <Icon name="grip" size={16} />
+                      </span>
                       <span className={styles.blockNumber}>{String(index + 1).padStart(2, '0')}</span>
                       <span className={styles.blockType} data-type={block.type}>
-                        <Icon name={info.icon} size={16} />
+                        <Icon name={info.icon} size={15} />
                         {info.title}
                       </span>
                       <span className={styles.blockCardSpacer} />
@@ -709,25 +1162,41 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
                         className={styles.iconButton}
                         type="button"
                         disabled={index === 0}
-                        aria-label={'Move block ' + (index + 1) + ' up'}
+                        aria-label={'Move block ' + (index + 1) + ' earlier'}
                         onClick={() =>
                           update((current) => ({ ...current, blocks: moveBlock(current.blocks, block.id, -1) }))
                         }
                       >
-                        <Icon name="arrowUp" size={17} />
+                        <Icon name="arrowLeft" size={15} />
                       </button>
                       <button
                         className={styles.iconButton}
                         type="button"
                         disabled={index === draft.blocks.length - 1}
-                        aria-label={'Move block ' + (index + 1) + ' down'}
+                        aria-label={'Move block ' + (index + 1) + ' later'}
                         onClick={() =>
                           update((current) => ({ ...current, blocks: moveBlock(current.blocks, block.id, 1) }))
                         }
                       >
-                        <Icon name="arrowDown" size={17} />
+                        <Icon name="arrowRight" size={15} />
                       </button>
-                      <span className={styles.actionDivider} />
+                      <button
+                        className={styles.iconButton}
+                        type="button"
+                        aria-label={'Edit block ' + (index + 1)}
+                        onClick={() => setEditingId(block.id)}
+                      >
+                        <Icon name="edit" size={15} />
+                      </button>
+                      <button
+                        className={styles.iconButton}
+                        type="button"
+                        aria-label={'Duplicate block ' + (index + 1)}
+                        title="Duplicate"
+                        onClick={() => copyBlock(block)}
+                      >
+                        <Icon name="copy" size={15} />
+                      </button>
                       <button
                         className={styles.deleteButton}
                         type="button"
@@ -735,12 +1204,12 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
                         aria-expanded={confirmDelete === block.id}
                         onClick={() => setConfirmDelete(confirmDelete === block.id ? null : block.id)}
                       >
-                        <Icon name="trash" size={17} />
+                        <Icon name="trash" size={15} />
                       </button>
                     </div>
                     {confirmDelete === block.id && (
                       <div role="group" aria-label="Confirm block deletion" className={styles.deleteConfirmation}>
-                        <span>Delete this block and its contents?</span>
+                        <span>Delete this block?</span>
                         <button type="button" onClick={() => setConfirmDelete(null)}>
                           Cancel
                         </button>
@@ -749,265 +1218,19 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
                         </button>
                       </div>
                     )}
-                    <div className={styles.blockBody}>
-                      <div className={styles.blockMeta}>
-                        <div className={styles.field}>
-                          <label htmlFor={block.id + '-label'}>
-                            Block label <span className={styles.required}>*</span>
-                          </label>
-                          <input
-                            id={block.id + '-label'}
-                            value={block.label}
-                            autoComplete="off"
-                            onChange={(e) => updateBlock(block.id, (b) => ({ ...b, label: e.target.value }))}
-                            aria-invalid={!!inputError('label')}
-                            aria-describedby={inputError('label') ? block.id + '-label-error' : undefined}
-                          />
-                          <FieldError id={block.id + '-label-error'} message={inputError('label')} />
-                        </div>
-                        {draft.settings.randomization === 'groups' && (
-                          <div className={styles.field}>
-                            <label htmlFor={block.id + '-group'}>Random group</label>
-                            <input
-                              id={block.id + '-group'}
-                              value={block.random_group}
-                              placeholder="e.g. A (blank = fixed)"
-                              autoComplete="off"
-                              onChange={(e) => updateBlock(block.id, (b) => ({ ...b, random_group: e.target.value }))}
-                            />
-                          </div>
-                        )}
-                      </div>
-                      {block.type === 'instructions' && (
-                        <div className={styles.field}>
-                          <label htmlFor={block.id + '-body'}>
-                            Instruction text <span className={styles.required}>*</span>
-                          </label>
-                          <textarea
-                            id={block.id + '-body'}
-                            rows={4}
-                            value={block.body}
-                            placeholder="Tell participants what to expect and how to proceed…"
-                            onChange={(e) =>
-                              updateBlock(block.id, (b) =>
-                                b.type === 'instructions' ? { ...b, body: e.target.value } : b
-                              )
-                            }
-                            aria-invalid={!!inputError('body')}
-                            aria-describedby={inputError('body') ? block.id + '-body-error' : undefined}
-                          />
-                          <FieldError id={block.id + '-body-error'} message={inputError('body')} />
-                        </div>
-                      )}
-
-                      {block.type === 'video' && (
-                        <>
-                          <div className={styles.fieldLabel}>
-                            Video stimulus <span className={styles.required}>*</span>
-                          </div>
-                          <label className={styles.videoPicker}>
-                            <span className={styles.uploadIcon}>
-                              <Icon name="upload" size={23} />
-                            </span>
-                            <strong>{block.media ? 'Replace video' : 'Choose a video file'}</strong>
-                            <span className={styles.browseLabel}>Browse files</span>
-                            <input
-                              type="file"
-                              className={styles.fileInput}
-                              accept="video/*"
-                              aria-label={'Video file for block ' + (index + 1)}
-                              aria-invalid={!!inputError('media')}
-                              onChange={(e) => {
-                                selectMedia(e.target.files?.[0], 'video', block.id + '.media', block.media, (media) =>
-                                  updateBlock(block.id, (b) =>
-                                    b.type === 'video'
-                                      ? {
-                                          ...b,
-                                          media,
-                                          label:
-                                            media &&
-                                            (isGeneratedLabel(b.label, 'video') ||
-                                              (b.media && b.label === mediaName(b.media)))
-                                              ? mediaName(media)
-                                              : b.label,
-                                        }
-                                      : b
-                                  )
-                                );
-                                e.target.value = '';
-                              }}
-                            />
-                          </label>
-                          {block.media && (
-                            <div className={styles.videoPreview}>
-                              {block.media.url && (
-                                <video
-                                  key={block.media.id}
-                                  src={block.media.url}
-                                  controls
-                                  preload="metadata"
-                                  playsInline
-                                  aria-label={'Video preview for block ' + (index + 1)}
-                                  onLoadedMetadata={() => markMedia(block.media!.id, 'ready')}
-                                  onError={() => markMedia(block.media!.id, 'error')}
-                                />
-                              )}
-                              <div className={styles.mediaDetails}>
-                                <div>
-                                  <strong>{mediaName(block.media)}</strong>
-                                  {block.media.kind === 'local' && (
-                                    <span>{(block.media.file.size / 1024 / 1024).toFixed(1) + ' MB'}</span>
-                                  )}
-                                </div>
-                                <button
-                                  type="button"
-                                  className={styles.textButton}
-                                  onClick={() => {
-                                    release(block.media);
-                                    clearFileError(block.id + '.media');
-                                    updateBlock(block.id, (b) => (b.type === 'video' ? { ...b, media: null } : b));
-                                  }}
-                                >
-                                  Remove video
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                          <FieldError
-                            id={block.id + '-media-error'}
-                            message={
-                              inputError('media') ||
-                              (block.media?.kind === 'local' && block.media.status === 'error'
-                                ? 'This browser cannot play the video. Choose another file.'
-                                : undefined)
-                            }
-                          />
-                          <div className={styles.captionFields}>
-                            <div className={styles.field}>
-                              <label htmlFor={block.id + '-title'}>Caption title</label>
-                              <input
-                                id={block.id + '-title'}
-                                value={block.title}
-                                placeholder="Optional"
-                                autoComplete="off"
-                                onChange={(e) =>
-                                  updateBlock(block.id, (b) =>
-                                    b.type === 'video' ? { ...b, title: e.target.value } : b
-                                  )
-                                }
-                              />
-                            </div>
-                            <div className={styles.field}>
-                              <label htmlFor={block.id + '-description'}>Caption text</label>
-                              <textarea
-                                id={block.id + '-description'}
-                                rows={2}
-                                value={block.description}
-                                placeholder="Optional"
-                                onChange={(e) =>
-                                  updateBlock(block.id, (b) =>
-                                    b.type === 'video' ? { ...b, description: e.target.value } : b
-                                  )
-                                }
-                              />
-                            </div>
-                          </div>
-                        </>
-                      )}
-
-                      {block.type === 'survey' && (
-                        <>
-                          <div className={styles.field}>
-                            <label htmlFor={block.id + '-prompt'}>
-                              Survey question <span className={styles.required}>*</span>
-                            </label>
-                            <textarea
-                              id={block.id + '-prompt'}
-                              rows={2}
-                              value={block.prompt}
-                              placeholder="e.g. How much did you enjoy this video?"
-                              onChange={(e) =>
-                                updateBlock(block.id, (b) =>
-                                  b.type === 'survey' ? { ...b, prompt: e.target.value } : b
-                                )
-                              }
-                              aria-invalid={!!inputError('prompt')}
-                              aria-describedby={inputError('prompt') ? block.id + '-prompt-error' : undefined}
-                            />
-                            <FieldError id={block.id + '-prompt-error'} message={inputError('prompt')} />
-                          </div>
-                          <div className={styles.optionsHeading}>
-                            <span className={styles.fieldLabel}>Response options</span>
-                          </div>
-                          <div className={styles.optionList}>
-                            {block.options.map((option, optionIndex) => (
-                              <div key={option.id}>
-                                <div className={styles.optionRow}>
-                                  <span className={styles.optionBubble}>{optionIndex + 1}</span>
-                                  <label className={styles.srOnly} htmlFor={option.id}>
-                                    Option {optionIndex + 1} for block {index + 1}
-                                  </label>
-                                  <input
-                                    id={option.id}
-                                    value={option.label}
-                                    placeholder="Response label"
-                                    onChange={(e) =>
-                                      updateBlock(block.id, (b) =>
-                                        b.type === 'survey'
-                                          ? {
-                                              ...b,
-                                              options: b.options.map((o) =>
-                                                o.id === option.id ? { ...o, label: e.target.value } : o
-                                              ),
-                                            }
-                                          : b
-                                      )
-                                    }
-                                    aria-invalid={!!errors[option.id + '.label']}
-                                    aria-describedby={errors[option.id + '.label'] ? option.id + '-error' : undefined}
-                                  />
-                                  <button
-                                    className={styles.iconButton}
-                                    type="button"
-                                    disabled={block.options.length <= 2}
-                                    aria-label={'Remove option ' + (optionIndex + 1) + ' from block ' + (index + 1)}
-                                    onClick={() =>
-                                      updateBlock(block.id, (b) =>
-                                        b.type === 'survey'
-                                          ? { ...b, options: b.options.filter((o) => o.id !== option.id) }
-                                          : b
-                                      )
-                                    }
-                                  >
-                                    <Icon name="close" size={16} />
-                                  </button>
-                                </div>
-                                <FieldError id={option.id + '-error'} message={errors[option.id + '.label']} />
-                              </div>
-                            ))}
-                          </div>
-                          <FieldError id={block.id + '-options-error'} message={inputError('options')} />
-                          <button
-                            type="button"
-                            className={styles.textButton}
-                            onClick={() =>
-                              updateBlock(block.id, (b) =>
-                                b.type === 'survey'
-                                  ? { ...b, options: [...b.options, { id: createId(), label: '' }] }
-                                  : b
-                              )
-                            }
-                          >
-                            <Icon name="plus" size={15} />
-                            Add response option
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </article>
+                    <button
+                      type="button"
+                      className={styles.tileBody}
+                      onClick={() => setEditingId(block.id)}
+                      aria-label={'Open block ' + (index + 1) + ': ' + (block.label || 'untitled')}
+                    >
+                      {blockSummary(block)}
+                      {needsAttention && <span className={styles.tileWarning}>Needs attention</span>}
+                    </button>
+                  </li>
                 );
               })}
-            </div>
+            </ol>
             {draft.blocks.length > 0 && (
               <button
                 className={styles.addAtEnd}
@@ -1023,6 +1246,133 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
               </button>
             )}
           </section>
+          {editingBlock && (
+            <div
+              className={styles.modalBackdrop}
+              onMouseDown={(e) => {
+                if (e.target === e.currentTarget) closeEditor();
+              }}
+            >
+              <div
+                id="block-editor"
+                className={styles.modal}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="block-editor-title"
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') closeEditor();
+                }}
+              >
+                <div className={styles.modalHeader}>
+                  <span className={styles.blockNumber}>{String(editingIndex + 1).padStart(2, '0')}</span>
+                  <h3 id="block-editor-title" className={styles.blockType} data-type={editingBlock.type}>
+                    <Icon name={blockInfo[editingBlock.type].icon} size={16} />
+                    Edit {blockInfo[editingBlock.type].title.toLowerCase()} block
+                  </h3>
+                  <span className={styles.blockCardSpacer} />
+                  <button
+                    type="button"
+                    className={styles.iconButton}
+                    aria-label="Close block editor"
+                    // Keep focus in the field until the click: its blur would show errors and move the button.
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={closeEditor}
+                  >
+                    <Icon name="close" size={17} />
+                  </button>
+                </div>
+                {blockEditor(editingBlock, editingIndex)}
+                <div className={styles.modalFooter}>
+                  <span>Changes are kept here; select Save at the bottom of the page to store them.</span>
+                  <button
+                    type="button"
+                    className={styles.primaryButton}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={closeEditor}
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          {showLibrary && supabase && (
+            <div
+              className={styles.modalBackdrop}
+              onMouseDown={(e) => {
+                if (e.target === e.currentTarget) setShowLibrary(false);
+              }}
+            >
+              <div
+                className={clsx(styles.modal, styles.libraryModal)}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="library-title"
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') setShowLibrary(false);
+                }}
+              >
+                <div className={styles.modalHeader}>
+                  <h3 id="library-title" className={styles.blockType}>
+                    <Icon name="copy" size={16} />
+                    Import from library
+                  </h3>
+                  <span className={styles.blockCardSpacer} />
+                  <button
+                    type="button"
+                    className={styles.iconButton}
+                    aria-label="Close library"
+                    onClick={() => setShowLibrary(false)}
+                  >
+                    <Icon name="close" size={17} />
+                  </button>
+                </div>
+                <div className={styles.libraryModalBody}>
+                  <BlockLibrary
+                    supabase={supabase}
+                    excludeStudyId={edit?.loaded.study.id}
+                    footer={(selection) => {
+                      const labels = draft.blocks.map((block) => block.label);
+                      const at = importAt ?? labels.length;
+                      const count = selection.blocks.length;
+                      const iconCount = Number(!!selection.icons.right) + Number(!!selection.icons.left);
+                      return (
+                        <>
+                          <p className={styles.librarySummary}>
+                            <strong>{count}</strong> block{count === 1 ? '' : 's'}
+                            {iconCount > 0 && (
+                              <>
+                                {' '}
+                                and <strong>{iconCount}</strong> icon{iconCount === 1 ? '' : 's'}
+                              </>
+                            )}{' '}
+                            selected
+                          </p>
+                          <PositionSelect id="library-position" labels={labels} value={at} onChange={setImportAt} />
+                          <button
+                            type="button"
+                            className={styles.primaryButton}
+                            disabled={!count && !iconCount}
+                            onClick={() => {
+                              applyImport(
+                                selection.blocks,
+                                { right: selection.icons.right?.path, left: selection.icons.left?.path },
+                                at,
+                                selection.signedUrls
+                              );
+                              setShowLibrary(false);
+                            }}
+                          >
+                            Import
+                          </button>
+                        </>
+                      );
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         </fieldset>
         <div className={styles.bottomBar}>{saveButton()}</div>
         {edit && (
@@ -1036,8 +1386,8 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
                 <button type="button" className={styles.dangerButton} disabled={deleting} onClick={removeStudy}>
                   {deleting
                     ? 'Deleting…'
-                    : lockedByRuns
-                      ? 'Delete study + ' + edit.loaded.runCount + ' run' + (edit.loaded.runCount === 1 ? '' : 's')
+                    : runCount > 0
+                      ? 'Delete study + ' + runCount + ' run' + (runCount === 1 ? '' : 's')
                       : 'Delete permanently'}
                 </button>
               </div>
@@ -1046,7 +1396,7 @@ export default function StudyBuilder({ edit }: { edit?: EditContext }) {
                 type="button"
                 className={styles.dangerButton}
                 disabled={!supabase || saving}
-                title={lockedByRuns ? 'Also deletes its participant runs and recordings.' : undefined}
+                title={runCount > 0 ? 'Also deletes its participant runs and recordings.' : undefined}
                 onClick={() => setConfirmStudyDelete(true)}
               >
                 <Icon name="trash" size={16} />

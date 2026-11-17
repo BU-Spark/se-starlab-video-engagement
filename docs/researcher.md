@@ -12,14 +12,15 @@ Saving requires `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE
 
 | Route                           | Page                                                                                                     | Buttons                                                                                                                     |
 | ------------------------------- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `/researcher/studies`           | Study list: name, block count, runs (completed), last sync, last update                                  | Create new, Refresh; per study: Edit (or View when locked), View data, Duplicate, Delete                                    |
+| `/researcher/studies`           | Study list: name, block count, runs (completed), last sync, last update                                  | Create new, Refresh; per study: Edit, View data, Duplicate, Delete                                                          |
 | `/researcher/studies/new`       | Study builder                                                                                            | Save study; after saving: View in list, Create another study                                                                |
-| `/researcher/studies/[id]/edit` | Builder loaded from Supabase                                                                             | Save changes, Discard changes, Delete study (with confirmation); when locked: Duplicate to edit, View data                  |
+| `/researcher/studies/[id]/edit` | Builder loaded from Supabase                                                                             | Save changes, Discard changes, Delete study (with confirmation); with runs: a note and View data                            |
+| `/researcher/library`           | Block library: every block (grouped by study, filter by type, search) and button icon from all studies   | Tick blocks across studies, choose icons for Like/Dislike, pick the target study (or a new one) and position, Import        |
 | `/researcher/studies/[id]/data` | Runs: participant, start, Completed/Incomplete, duration, sync time; All / Completed / Incomplete filter | Refresh, Edit/View study, Download ZIP and Download CSV (all filtered runs); per run: Inspect ▾ (block views), Download CSV |
 
 Data rules:
 
-- A study with at least one run is **locked**: the editor opens read-only, because `block_views` refer to its blocks. Save re-checks the run count immediately before writing. **Delete** still works: its confirmation says how many runs go with it, and it also removes the study's videos, icons and recordings. The `blocks_locked_after_runs` trigger in the second migration enforces the same rule in the database.
+- A study stays **editable after it has runs**: blocks are saved with an upsert that keeps their ids, so collected `block_views` stay attached. Removing a block that has `block_views` is refused (checked before saving, and by the `blocks_with_data_kept` trigger from `20261117000100_edit_studies_with_runs.sql`). `block_views.stimulus` keeps what each participant saw; the export's Block column shows the current label. **Delete** still works: its confirmation says how many runs go with it, and it also removes the study's videos, icons and recordings.
 - Saving an edit is refused if `studies.updated_at` changed since the page loaded (someone else saved); reload to continue.
 - Replaced or removed videos/icons are deleted from Storage after a successful save; deleting a study also deletes its files.
 - **Duplicate** copies the settings, blocks and Storage files into a new study named `<name> (copy)` (then `(copy 2)`, …) with new block ids and no runs, and opens it in the editor. This is how a locked study is changed for new participants.
@@ -36,7 +37,9 @@ The builder layout follows the design: study settings above the block list, Engl
 - Instructions: plain-text input.
 - Video: select, replace, play, and remove local videos, with validation messages for invalid files; optional caption title and text.
 - Survey: edit the question and options, keeping at least two options.
-- Reordering and deletion: stable block IDs; moving blocks preserves content; deletion requires confirmation.
+- Block grid: blocks are compact tiles, three per row (two below 900px, one below 560px), read left to right then down. Each tile shows the label and a summary (instruction text, video thumbnail and caption, survey question and options) and "Needs attention" when a field is invalid. The pencil icon or the tile opens the block's full editor in a popup; a new block opens there straight away.
+- Library import (`BlockLibrary.tsx`, also in the builder as "Import from library"): imported blocks get new ids, a "(copy)" label if it is taken, and no random group, and are inserted at the end, the start or after a chosen block. They are unsaved draft changes. Videos and icons keep pointing at the source study's files until the save, which copies them into the study's own folder (`plannedCopies`), so deleting the source study never breaks them. The Block library tab hands its selection to the editor through `sessionStorage` (`queueImport` / `peekImport`).
+- Reordering and deletion: drag a tile and drop it on the left or right half of another tile, or use the ← → buttons (keyboard accessible). Stable block IDs; moving blocks preserves content; deletion requires confirmation.
 - Required-field validation for names, instructions, questions, and options appears after leaving the corresponding field, without a simulated save.
 - Save validates every field, uploads files, inserts the study and blocks, and reports progress and errors. Randomization is only configured here; the tablet applies it.
 

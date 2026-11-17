@@ -11,6 +11,7 @@ import {
   copyName,
   copyStudyRows,
   createId,
+  plannedCopies,
   plannedUploads,
   referencedPaths,
   toStudyRows,
@@ -94,6 +95,73 @@ export async function listStudies(supabase: SupabaseClient): Promise<StudySummar
   });
 }
 
+export interface LibraryIcon {
+  studyId: string;
+  studyName: string;
+  /** 'right' is the Like button, 'left' the Dislike button, in the study it came from. */
+  side: 'left' | 'right';
+  path: string;
+}
+
+export interface Library {
+  studies: { id: string; name: string; updated_at: string }[];
+  /** Every block of every study, by study then position. */
+  blocks: BlockRow[];
+  icons: LibraryIcon[];
+  /** Preview URLs for the videos and icons. */
+  signedUrls: Record<string, string>;
+}
+
+/** Everything researchers built before (blocks, videos, button icons), for importing into a study. */
+export async function loadLibrary(supabase: SupabaseClient): Promise<Library> {
+  const [studies, blocks] = await Promise.all([
+    supabase
+      .from('studies')
+      .select('id,name,updated_at,left_button_icon_path,right_button_icon_path')
+      .order('updated_at', { ascending: false }),
+    supabase.from('blocks').select('*').order('position'),
+  ]);
+  fail(studies.error, 'load studies');
+  fail(blocks.error, 'load blocks');
+  const studyRows = studies.data ?? [];
+  const order = new Map(studyRows.map((study, index) => [study.id, index]));
+  const blockRows = ((blocks.data ?? []) as BlockRow[]).sort(
+    (a, b) => (order.get(a.study_id) ?? 0) - (order.get(b.study_id) ?? 0) || a.position - b.position
+  );
+  const icons: LibraryIcon[] = studyRows.flatMap((study) =>
+    (['right', 'left'] as const).flatMap((side) => {
+      const path = side === 'right' ? study.right_button_icon_path : study.left_button_icon_path;
+      return path ? [{ studyId: study.id, studyName: study.name, side, path }] : [];
+    })
+  );
+  const paths = [...blockRows.map((block) => block.video_path), ...icons.map((icon) => icon.path)].filter(
+    (path): path is string => !!path
+  );
+  return {
+    studies: studyRows.map(({ id, name, updated_at }) => ({ id, name, updated_at })),
+    blocks: blockRows,
+    icons,
+    signedUrls: await signPaths(supabase, [...new Set(paths)]),
+  };
+}
+
+/** The blocks and icon files an import link names (see LibraryPage), with preview URLs. */
+export async function loadImport(
+  supabase: SupabaseClient,
+  blockIds: string[],
+  iconPaths: string[]
+): Promise<{ blocks: BlockRow[]; signedUrls: Record<string, string> }> {
+  let rows: BlockRow[] = [];
+  if (blockIds.length) {
+    const { data, error } = await supabase.from('blocks').select('*').in('id', blockIds);
+    fail(error, 'load the blocks to import');
+    // Keep the order the researcher saw in the library.
+    rows = blockIds.flatMap((id) => ((data ?? []) as BlockRow[]).filter((row) => row.id === id));
+  }
+  const paths = [...rows.map((row) => row.video_path), ...iconPaths].filter((path): path is string => !!path);
+  return { blocks: rows, signedUrls: await signPaths(supabase, paths) };
+}
+
 export interface LoadedStudy {
   study: StudyRow;
   blocks: BlockRow[];
@@ -152,15 +220,6 @@ export async function listBlockViews(supabase: SupabaseClient, runIds: string[])
   return (data ?? []) as BlockViewRow[];
 }
 
-async function countRuns(supabase: SupabaseClient, studyId: string): Promise<number> {
-  const { count, error } = await supabase
-    .from('runs')
-    .select('id', { count: 'exact', head: true })
-    .eq('study_id', studyId);
-  fail(error, 'check runs');
-  return count ?? 0;
-}
-
 // ---------------------------------------------------------------------------
 // Writes
 
@@ -201,6 +260,17 @@ async function uploadDraftFiles(
     throw error;
   }
   onProgress({ stage: 'uploading', done: uploads.length, total: uploads.length });
+  try {
+    // Library imports: copy the other study's files into this study's folder.
+    for (const copy of plannedCopies(draft, studyId)) {
+      const { error } = await storage.copy(copy.media.path, copy.to);
+      if (error) throw new SaveStudyError('Could not copy ' + copy.media.name + ': ' + error.message);
+      uploadedPaths[copy.media.id] = copy.to;
+    }
+  } catch (error) {
+    await removeUploads();
+    throw error;
+  }
   return { uploadedPaths, removeUploads };
 }
 
@@ -246,9 +316,10 @@ export async function createStudyInSupabase(
 }
 
 /**
- * Saves edits to a study that has no runs yet (studies with runs are locked in the UI and here).
+ * Saves edits to a study in place, also after participants have run it.
  * `original` is what the editor loaded; its updated_at guards against overwriting someone else's save.
- * Blocks are replaced wholesale — safe only because no block_views can reference them yet.
+ * Blocks keep their ids (updated with an upsert), so collected block_views stay attached to them;
+ * a removed block that already has participant data is refused before anything is written.
  */
 export async function updateStudyInSupabase(
   supabase: SupabaseClient,
@@ -259,10 +330,26 @@ export async function updateStudyInSupabase(
   const studyId = original.study.id;
   try {
     onProgress({ stage: 'checking' });
-    if ((await countRuns(supabase, studyId)) > 0) {
-      throw new SaveStudyError('Participants have already run this study, so it can no longer be edited.');
-    }
     await assertNameFree(supabase, draft.name.trim(), studyId);
+    const keptIds = new Set(draft.blocks.map((block) => block.id));
+    const removed = original.blocks.filter((block) => !keptIds.has(block.id));
+    if (removed.length) {
+      const withData = await supabase
+        .from('block_views')
+        .select('block_id')
+        .in(
+          'block_id',
+          removed.map((block) => block.id)
+        )
+        .limit(1);
+      fail(withData.error, 'check the removed blocks');
+      const blocked = removed.find((block) => block.id === withData.data?.[0]?.block_id);
+      if (blocked) {
+        throw new SaveStudyError(
+          `Block "${blocked.label}" has participant data and cannot be removed. Undo its removal to save.`
+        );
+      }
+    }
     const { uploadedPaths, removeUploads } = await uploadDraftFiles(supabase, draft, studyId, onProgress);
     try {
       onProgress({ stage: 'saving' });
@@ -280,14 +367,16 @@ export async function updateStudyInSupabase(
         throw new SaveStudyError('This study was changed or deleted somewhere else. Reload it before saving.');
       }
 
+      const originalIds = new Set(original.blocks.map((block) => block.id));
       const restore = async () => {
         const previous: Partial<StudyRow> = { ...original.study };
         delete previous.id;
         delete previous.created_at;
         await supabase.from('studies').update(previous).eq('id', studyId);
-        await supabase.from('blocks').delete().eq('study_id', studyId);
+        const added = rows.blocks.map((block) => block.id).filter((id) => !originalIds.has(id));
+        if (added.length) await supabase.from('blocks').delete().in('id', added);
         if (original.blocks.length) {
-          await supabase.from('blocks').insert(
+          await supabase.from('blocks').upsert(
             original.blocks.map((block) => {
               const copy: Partial<BlockRow> = { ...block };
               delete copy.created_at;
@@ -296,15 +385,24 @@ export async function updateStudyInSupabase(
           );
         }
       };
-      const removed = await supabase.from('blocks').delete().eq('study_id', studyId);
-      if (removed.error) {
-        await restore();
-        throw describe(removed.error, 'replace the blocks');
+      if (removed.length) {
+        const deleted = await supabase
+          .from('blocks')
+          .delete()
+          .in(
+            'id',
+            removed.map((block) => block.id)
+          );
+        if (deleted.error) {
+          await restore();
+          throw describe(deleted.error, 'remove blocks');
+        }
       }
-      const inserted = await supabase.from('blocks').insert(rows.blocks);
-      if (inserted.error) {
+      // Removed first, so a new block may reuse a removed block's label.
+      const saved = await supabase.from('blocks').upsert(rows.blocks);
+      if (saved.error) {
         await restore();
-        throw describe(inserted.error, 'save the blocks');
+        throw describe(saved.error, 'save the blocks');
       }
 
       // Files the saved study no longer references (replaced or removed) can go.

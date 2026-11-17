@@ -4,7 +4,7 @@ import AccountMenu from './AccountMenu';
 import Icon from './Icon';
 import styles from './StudyBuilder.module.css';
 
-export type ResearcherTab = 'list' | 'data' | 'new' | 'edit';
+export type ResearcherTab = 'list' | 'data' | 'new' | 'edit' | 'library';
 
 /** Shared researcher chrome: brand bar, navigation, page body and footer. */
 export default function ResearcherShell({
@@ -44,6 +44,13 @@ export default function ResearcherShell({
             Edit study
           </span>
         )}
+        <Link
+          href="/researcher/library"
+          className={active === 'library' ? styles.activeTab : styles.navLink}
+          aria-current={active === 'library' ? 'page' : undefined}
+        >
+          Block library
+        </Link>
         <Link
           href="/researcher/studies/new"
           className={active === 'new' ? styles.activeTab : styles.navLink}

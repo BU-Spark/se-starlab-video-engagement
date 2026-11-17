@@ -35,7 +35,9 @@ export default function StudyEditor({ studyId }: { studyId: string }) {
           status: 'ready',
           loaded,
           initial: fromStudyRows(loaded.study, loaded.blocks, urls),
-          version: current.status === 'ready' ? current.version + 1 : 0,
+          // Only a reload after saving starts a fresh editor; repeating the first load (React Strict Mode
+          // runs effects twice in development) must not throw away unsaved work such as a library import.
+          version: current.status === 'ready' ? current.version + (justSaved ? 1 : 0) : 0,
           justSaved,
         }));
       } catch (error) {
