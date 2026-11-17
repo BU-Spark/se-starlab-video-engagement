@@ -1,4 +1,165 @@
-This is a template for Spark! DS 519 projects. It has pre-configured eslint.config.mjs - ([`ESLint`](https://eslint.org/)) and .prettierrc - ([`Prettier`](https://prettier.io/)) to reflect industry standard development guidelines.
+# STAR Lab Video Engagement Study Platform
+
+A platform for running short-form video studies (like TikTok, Reels or YouTube Shorts) on a lab tablet.
+Researchers build studies on a website; participants watch and respond on the tablet; the responses come back to the
+website to download.
+
+- **Part 1, [Using the platform](#part-1-using-the-platform):** for researchers and lab staff. No coding needed.
+- **Part 2, [For developers](#part-2-for-developers):** running, changing and deploying the code.
+
+# Part 1: Using the platform
+
+## The two parts
+
+| Part                | Who uses it  | Address                                                                                                        |
+| ------------------- | ------------ | -------------------------------------------------------------------------------------------------------------- |
+| **Researcher site** | Researchers  | [se-starlab-video-engagement.vercel.app/researcher](https://se-starlab-video-engagement.vercel.app/researcher) |
+| **Participant app** | Participants | [se-starlab-video-engagement.vercel.app](https://se-starlab-video-engagement.vercel.app), on the lab tablet    |
+
+Bookmark the researcher site. The participant app has no link to it, so participants never see it.
+
+## 1. Sign in
+
+1. Go to the researcher site and enter the email and password a lab admin gave you.
+2. You land on your **studies list**.
+3. To sign out, use the menu with your email at the top of the page.
+
+Don't have an account, or forgot your password? Ask a lab admin (see
+[Managing researcher access](#managing-researcher-access-admins)). The site can't reset passwords yet.
+
+## 2. Create a study
+
+On the studies list, select **Create new**.
+
+1. **Name the study.**
+2. **Choose the settings:**
+   - **Randomization:** show blocks in the order you set, shuffle all of them, or shuffle within groups.
+   - **Progress bar, swipe back, pause:** whether participants see a video progress bar, can swipe back to
+     an earlier video, and can tap to pause.
+   - **Response buttons:** the like / dislike buttons beside each video. You can change their labels or icons, or
+     turn them off.
+   - **Recording:** optionally record the participant's audio and/or camera for the whole session.
+3. **Add blocks.** A study is a list of blocks, shown one per screen:
+   - **Instructions:** text the participant reads.
+   - **Video:** a video file from your computer, with an optional caption.
+   - **Survey:** a question with two or more answer options.
+
+   Every block needs a **label**. It identifies that block in the downloaded data. Use the up/down arrows on a block to
+   reorder it.
+
+4. Select **Save study**. Videos upload while it saves, which can take a minute for large files.
+
+**Once anyone has run a study, it's locked** so the data stays consistent. To change it for new participants,
+select **Duplicate** on the studies list and edit the copy.
+
+## 3. Run a session on the tablet
+
+1. Open the **STAR Lab** app on the tablet. (First time on a new tablet? See
+   [Set up a tablet](#5-set-up-a-tablet-once-per-device).)
+2. **Pick the study.** The app downloads all its videos first, so playback never stalls. Wait for it to finish.
+   If the study records audio or video, allow the camera/microphone when asked.
+3. **Enter the Participant ID**, then hand the tablet to the participant.
+4. The participant swipes **up** for the next screen (and **down** to go back, if the study allows it), and taps
+   the buttons to respond.
+5. At the end they see **"Thank you!"**. Tap to continue: the app returns to the study list, ready for the next
+   participant.
+
+**Ending a session early:** tap the **top-left corner 5 times quickly** and enter the researcher PIN. Responses from
+an ended session are not saved.
+
+**No internet?** The tablet keeps the responses ("Saved on this tablet") and uploads them automatically the next time
+the app is opened online. Don't clear Chrome's site data on the tablet, or waiting responses are lost.
+
+## 4. Get the data
+
+On the studies list, select **View data** for a study.
+
+- Each row is one session: participant, start time, **Completed** or **Incomplete**, and duration.
+- **Inspect** shows what that participant did on each block.
+- **Download CSV** gives one spreadsheet. **Download ZIP** gives the combined spreadsheet plus one file per session.
+  Both open in Excel.
+- **Recording** opens a session's audio/video, if the study recorded.
+
+Each spreadsheet row is one block a participant viewed, with: watch time, like/dislike and how long it took, survey
+answer and how long it took, pauses, and whether they swiped back. A block viewed twice (after swiping back) gets two
+rows.
+
+## 5. Set up a tablet (once per device)
+
+The participant app is made for **Android tablets with Google Chrome**.
+
+1. In Chrome, open **se-starlab-video-engagement.vercel.app**, then **⋮ menu → Install app**. Open it from the home
+   screen from now on: it runs fullscreen in portrait.
+2. Open **Device check** (bottom of the app's study list). Tap **Request** next to persistent storage, then
+   **Copy report** and send it to the team.
+3. **Lock the tablet to the app:** Settings → Security → More security settings → **App pinning**, on, with
+   **Ask for PIN before unpinning**. To pin: open the app, open Recents, tap the app's icon, choose **Pin**.
+4. Recommended settings, so every participant gets the same experience:
+   - **Do Not Disturb** on, notifications off
+   - Auto-brightness off; screen timeout at its longest
+   - Battery saver off for Chrome; keep the tablet charging during sessions
+   - Automatic date and time on
+   - Volume fixed at one level (mark it with a label)
+   - Automatic updates for Chrome and Android off during a study
+
+## 6. Before each session
+
+1. Tablet charged, on Wi-Fi, Do Not Disturb on.
+2. Open the app, pick the study, wait for the download to finish.
+3. Pin the app.
+4. Enter the Participant ID and hand the tablet over.
+5. Afterwards, check the session appears on the study's **View data** page.
+
+## Managing researcher access (admins)
+
+Access is managed in the Supabase dashboard (project "Starlab Video Project"). You need the Owner, Administrator or
+Developer role there. A researcher needs **an account** and **a place on the researcher list**.
+
+**Add a researcher**
+
+1. **Authentication → Users → Add user → Create new user.** Enter their email and a temporary password, and check
+   **Auto Confirm User**. (Use this, not "Invite": invites don't set a password.)
+2. **SQL Editor**, paste this with their email, and select **Run**:
+
+   ```sql
+   insert into public.researchers (user_id, email)
+   select id, email from auth.users
+   where email = 'name@bu.edu';   -- several: where email in ('a@bu.edu', 'b@bu.edu')
+   ```
+
+3. Send them the password privately.
+
+**Remove a researcher:** in the SQL Editor, run `delete from public.researchers where email = 'name@bu.edu';`. To
+delete their account too, delete the user under Authentication → Users.
+
+**Reset a password:** Authentication → Users → the user's menu.
+
+**Keep public sign-ups off:** Authentication → Sign In / Providers → "Allow new users to sign up" stays **off**.
+Leave the **Email** provider itself on, or no one can sign in.
+
+## Troubleshooting
+
+| You see                                      | What to do                                                                              |
+| -------------------------------------------- | --------------------------------------------------------------------------------------- |
+| "Invalid login credentials"                  | Check the email and password; otherwise ask an admin to check the account or reset it   |
+| "This account is not on the researcher list" | An admin adds you to the list (above)                                                   |
+| "Email not confirmed"                        | An admin confirms the account under Authentication → Users                              |
+| "Could not reach the server"                 | Check the internet; if it persists, an admin checks the Supabase project isn't paused   |
+| A Vercel login page                          | You opened an old deployment link. Use the addresses in [The two parts](#the-two-parts) |
+| "No studies available." on the tablet        | No study has been saved yet, or the tablet is offline                                   |
+| "Loading failed" on the tablet               | Check the Wi-Fi and pick the study again                                                |
+| A study can't be edited                      | It has been run. Use **Duplicate** and edit the copy                                    |
+
+# Part 2: For developers
+
+This repository started from the Spark! DS 519 template. It has pre-configured eslint.config.mjs -
+([`ESLint`](https://eslint.org/)) and .prettierrc - ([`Prettier`](https://prettier.io/)) to reflect industry standard
+development guidelines.
+
+**Deployment:** the live site is hosted on Vercel and uses the cloud Supabase project. Vercel needs
+`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `NEXT_PUBLIC_RESEARCHER_PIN` (never the secret
+key). New migrations go to the cloud with `npx supabase db push` after `npx supabase link`. The allow-list table
+behind researcher login comes from `supabase/migrations/20261114000100_researcher_access.sql`.
 
 ## Running the Whole Platform Locally
 
@@ -27,11 +188,13 @@ npm run dev                           # researcher website + tablet app
 ```
 
 `npx supabase start` creates the tables from `supabase/migrations/` and then runs `supabase/seed.sql`.
-The seed adds **local-only** policies that let the researcher pages work without a login. They are never
-sent to the cloud project (`npx supabase db push` does not run the seed). To wipe local data and rebuild
-the database from scratch, run `npx supabase db reset`.
+The seed creates a **local-only** test researcher, `researcher@starlab.test` / `starlab-local`, already on the
+allow-list. It is never sent to the cloud project (`npx supabase db push` does not run the seed). To wipe local data
+and rebuild the database from scratch, run `npx supabase db reset`. If you only ran `npx supabase migration up` on an
+existing database, the seed did not run: load it with
+`docker exec -i supabase_db_se-starlab-video-engagement psql -U postgres < supabase/seed.sql`.
 
-Try it end to end: create and save a study at `/researcher/studies/new`, open `/tablet`, pick the study, run it
+Try it end to end: sign in at `/researcher`, create and save a study, open `/tablet`, pick the study, run it
 with any Participant ID, then open the study's **View data** page (or the `export_rows` view in Studio).
 
 Without the `NEXT_PUBLIC_SUPABASE_*` values the tablet falls back to the mock study in
@@ -381,10 +544,9 @@ JSON.parse(localStorage.getItem('mock-submitted-runs'));
 
 ### Tablet setup (kiosk mode)
 
-1. Open the site's `/tablet` page in Chrome on the tablet and choose **⋮ → Add to Home screen / Install app**. The app then launches fullscreen in portrait.
-2. In Android **Settings → Security (or Security & privacy) → More security settings → App pinning**, turn it on along with **Ask for PIN before unpinning**.
-3. Open the installed app, open **Recents**, tap the app's icon, and choose **Pin**. Participants can't leave the app without the device PIN.
-4. Optional, for stricter labs: a kiosk browser such as Fully Kiosk Browser can lock the tablet further.
+Installing the app and locking the tablet are covered in
+[Part 1: Set up a tablet](#5-set-up-a-tablet-once-per-device). For stricter labs, a kiosk browser such as Fully Kiosk
+Browser can lock the tablet further.
 
 Fullscreen and keep-screen-awake only work over HTTPS (or `localhost`). To test on a tablet against your laptop, either:
 
