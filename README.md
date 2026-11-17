@@ -22,10 +22,13 @@ Bookmark the researcher site. The participant app has no link to it, so particip
 
 1. Go to the researcher site and enter the email and password a lab admin gave you.
 2. You land on your **studies list**.
-3. To sign out, use the menu with your email at the top of the page.
+3. To sign out or change your password, use the menu with your email at the top of the page.
 
-Don't have an account, or forgot your password? Ask a lab admin (see
-[Managing researcher access](#managing-researcher-access-admins)). The site can't reset passwords yet.
+**Forgot your password?** Select **Forgot password?** on the sign-in page, enter your email, and select **Send reset
+link**. The email's link opens a page where you choose a new password. If no email arrives within a few minutes, ask a
+lab admin.
+
+**No account yet?** Ask a lab admin (see [Managing researcher access](#managing-researcher-access-admins)).
 
 ## 2. Create a study
 
@@ -117,9 +120,12 @@ Developer role there. A researcher needs **an account** and **a place on the res
 
 **Add a researcher**
 
-1. **Authentication → Users → Add user → Create new user.** Enter their email and a temporary password, and check
-   **Auto Confirm User**. (Use this, not "Invite": invites don't set a password.)
-2. **SQL Editor**, paste this with their email, and select **Run**:
+1. **Create the account** under **Authentication → Users → Add user**, in one of two ways:
+   - **Create new user** (works without email setup): enter their email and a temporary password, check **Auto
+     Confirm User**, and send them the password privately. They can change it after signing in.
+   - **Send invitation**: they get an email with a link to choose their own password. Needs working email (see
+     below).
+2. **Add them to the researcher list.** Open the **SQL Editor**, paste this with their email, and select **Run**:
 
    ```sql
    insert into public.researchers (user_id, email)
@@ -127,28 +133,36 @@ Developer role there. A researcher needs **an account** and **a place on the res
    where email = 'name@bu.edu';   -- several: where email in ('a@bu.edu', 'b@bu.edu')
    ```
 
-3. Send them the password privately.
-
 **Remove a researcher:** in the SQL Editor, run `delete from public.researchers where email = 'name@bu.edu';`. To
 delete their account too, delete the user under Authentication → Users.
 
-**Reset a password:** Authentication → Users → the user's menu.
+**Reset someone's password by hand:** Authentication → Users → the user's menu. Researchers can also reset their own
+with **Forgot password?**.
 
 **Keep public sign-ups off:** Authentication → Sign In / Providers → "Allow new users to sign up" stays **off**.
 Leave the **Email** provider itself on, or no one can sign in.
 
+**Email (invites and password resets)** needs two settings:
+
+- **Authentication → URL Configuration:** set **Site URL** to `https://se-starlab-video-engagement.vercel.app`, and
+  add `https://se-starlab-video-engagement.vercel.app/researcher/reset-password` under **Redirect URLs**. Otherwise
+  email links point to the wrong address.
+- **Authentication → SMTP Settings:** Supabase's built-in email sends only a few messages an hour and is meant for
+  testing. For real use, connect a lab or university email account here. Until then, use **Create new user**.
+
 ## Troubleshooting
 
-| You see                                      | What to do                                                                              |
-| -------------------------------------------- | --------------------------------------------------------------------------------------- |
-| "Invalid login credentials"                  | Check the email and password; otherwise ask an admin to check the account or reset it   |
-| "This account is not on the researcher list" | An admin adds you to the list (above)                                                   |
-| "Email not confirmed"                        | An admin confirms the account under Authentication → Users                              |
-| "Could not reach the server"                 | Check the internet; if it persists, an admin checks the Supabase project isn't paused   |
-| A Vercel login page                          | You opened an old deployment link. Use the addresses in [The two parts](#the-two-parts) |
-| "No studies available." on the tablet        | No study has been saved yet, or the tablet is offline                                   |
-| "Loading failed" on the tablet               | Check the Wi-Fi and pick the study again                                                |
-| A study can't be edited                      | It has been run. Use **Duplicate** and edit the copy                                    |
+| You see                                                  | What to do                                                                              |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| "Invalid login credentials"                              | Check the email and password, or use **Forgot password?**                               |
+| A reset or invite link "has expired or was already used" | Request a new one with **Forgot password?**                                             |
+| "This account is not on the researcher list"             | An admin adds you to the list (above)                                                   |
+| "Email not confirmed"                                    | An admin confirms the account under Authentication → Users                              |
+| "Could not reach the server"                             | Check the internet; if it persists, an admin checks the Supabase project isn't paused   |
+| A Vercel login page                                      | You opened an old deployment link. Use the addresses in [The two parts](#the-two-parts) |
+| "No studies available." on the tablet                    | No study has been saved yet, or the tablet is offline                                   |
+| "Loading failed" on the tablet                           | Check the Wi-Fi and pick the study again                                                |
+| A study can't be edited                                  | It has been run. Use **Duplicate** and edit the copy                                    |
 
 # Part 2: For developers
 

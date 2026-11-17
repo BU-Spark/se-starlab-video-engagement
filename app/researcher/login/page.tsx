@@ -7,7 +7,11 @@ export const metadata: Metadata = {
   description: 'Researcher sign-in for the STAR Lab study platform.',
 };
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
-  const { next } = await searchParams;
-  return <LoginForm next={safeNextPath(next)} />;
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string; reset?: string }>;
+}) {
+  const { next, reset } = await searchParams;
+  return <LoginForm next={safeNextPath(next)} passwordReset={reset === 'done'} />;
 }

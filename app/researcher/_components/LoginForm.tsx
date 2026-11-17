@@ -3,16 +3,17 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
+import AuthFrame from './AuthFrame';
 import Icon from './Icon';
-import { HOME_PATH } from './auth';
+import { FORGOT_PATH, HOME_PATH, authErrorMessage } from './auth';
 import { getSupabase } from './study-repository';
 import styles from './StudyBuilder.module.css';
-import login from './LoginForm.module.css';
+import auth from './LoginForm.module.css';
 
 type FormState = { status: 'idle' } | { status: 'busy' } | { status: 'error'; message: string };
 
 /** Email + password sign-in. Only accounts on the researchers list are let in. */
-export default function LoginForm({ next }: { next: string }) {
+export default function LoginForm({ next, passwordReset = false }: { next: string; passwordReset?: boolean }) {
   const router = useRouter();
   const [supabase] = useState(getSupabase);
   const [email, setEmail] = useState('');
@@ -26,12 +27,7 @@ export default function LoginForm({ next }: { next: string }) {
 
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     if (error) {
-      // A network failure surfaces as a bare "Failed to fetch".
-      const unreachable = error.name === 'AuthRetryableFetchError' || error.message === 'Failed to fetch';
-      setState({
-        status: 'error',
-        message: unreachable ? 'Could not reach the server. Check the connection and try again.' : error.message,
-      });
+      setState({ status: 'error', message: authErrorMessage(error) });
       return;
     }
 
@@ -55,63 +51,62 @@ export default function LoginForm({ next }: { next: string }) {
   const busy = state.status === 'busy';
 
   return (
-    <div className={styles.workspace}>
-      <header className={styles.topbar}>
-        <div className={styles.brand}>
-          <span className={styles.bu}>BU</span>
-          <span className={styles.brandDivider} />
-          <strong>STAR LAB</strong>
+    <AuthFrame title="Researcher sign in" onSubmit={signIn}>
+      {!supabase ? (
+        <div className={styles.demoNotice}>
+          <Icon name="info" size={17} />
+          <p>
+            Supabase is not configured. Sign-in is disabled. <Link href={HOME_PATH}>Open the local preview</Link>
+          </p>
         </div>
-      </header>
-      <main className={login.page}>
-        <form className={login.card} onSubmit={signIn} noValidate>
-          <h1 className={login.title}>Researcher sign in</h1>
-
-          {!supabase ? (
-            <div className={styles.demoNotice}>
-              <Icon name="info" size={17} />
-              <p>
-                Supabase is not configured. Sign-in is disabled. <Link href={HOME_PATH}>Open the local preview</Link>
-              </p>
-            </div>
-          ) : (
-            <>
-              <div className={styles.field}>
-                <label htmlFor="login-email">Email</label>
-                <input
-                  id="login-email"
-                  type="email"
-                  autoComplete="username"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={busy}
-                />
-              </div>
-              <div className={styles.field}>
-                <label htmlFor="login-password">Password</label>
-                <input
-                  id="login-password"
-                  type="password"
-                  autoComplete="current-password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={busy}
-                />
-              </div>
-              {state.status === 'error' && (
-                <p className={styles.errorSummary} role="alert">
-                  {state.message}
-                </p>
-              )}
-              <button type="submit" className={styles.primaryButton} disabled={busy || !email || !password}>
-                {busy ? 'Signing in…' : 'Sign in'}
-              </button>
-            </>
+      ) : (
+        <>
+          {passwordReset && state.status !== 'error' && (
+            <p className={auth.success} role="status">
+              Your password was changed. Sign in with the new password.
+            </p>
           )}
-        </form>
-      </main>
-    </div>
+          <div className={styles.field}>
+            <label htmlFor="login-email">Email</label>
+            <input
+              id="login-email"
+              type="email"
+              autoComplete="username"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={busy}
+            />
+          </div>
+          <div className={styles.field}>
+            <div className={auth.labelRow}>
+              <label htmlFor="login-password" className={styles.fieldLabel}>
+                Password
+              </label>
+              <Link href={FORGOT_PATH} className={auth.textLink}>
+                Forgot password?
+              </Link>
+            </div>
+            <input
+              id="login-password"
+              type="password"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={busy}
+            />
+          </div>
+          {state.status === 'error' && (
+            <p className={styles.errorSummary} role="alert">
+              {state.message}
+            </p>
+          )}
+          <button type="submit" className={styles.primaryButton} disabled={busy || !email || !password}>
+            {busy ? 'Signing in…' : 'Sign in'}
+          </button>
+        </>
+      )}
+    </AuthFrame>
   );
 }

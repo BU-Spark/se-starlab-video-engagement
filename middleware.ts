@@ -8,7 +8,7 @@
 
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
-import { HOME_PATH, LOGIN_PATH } from '@/app/researcher/_components/auth';
+import { FORGOT_PATH, HOME_PATH, LOGIN_PATH, PUBLIC_PATHS } from '@/app/researcher/_components/auth';
 
 export async function middleware(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -35,15 +35,17 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
   const { pathname, search } = request.nextUrl;
-  const onLogin = pathname === LOGIN_PATH;
+  // The reset page stays open either way: a reset link signs the browser in only once the page has loaded.
+  const isPublic = PUBLIC_PATHS.includes(pathname);
+  const signedOutOnly = pathname === LOGIN_PATH || pathname === FORGOT_PATH;
 
-  if (!user && !onLogin) {
+  if (!user && !isPublic) {
     const login = request.nextUrl.clone();
     login.pathname = LOGIN_PATH;
     login.search = '?next=' + encodeURIComponent(pathname + search);
     return NextResponse.redirect(login);
   }
-  if (user && (onLogin || pathname === '/researcher')) {
+  if (user && (signedOutOnly || pathname === '/researcher')) {
     const home = request.nextUrl.clone();
     home.pathname = HOME_PATH;
     home.search = '';
