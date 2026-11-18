@@ -63,5 +63,11 @@
       "eslint --fix",
       "prettier --write"
     ]
+  },
+  "overrides": {
+    "postcss": "^8.5.33"
+  },
+  "engines": {
+    "node": ">=22 <23"
   }
 }
