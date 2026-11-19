@@ -47,6 +47,7 @@ next-env.d.ts
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.venv/
 
 # Supabase CLI local state and generated secrets (keep migrations/config tracked)
 /supabase/.temp/
@@ -56,3 +57,6 @@ __pycache__/
 docker.env
 docker.env.*
 !docker.env.example
+
+# agents
+.claude

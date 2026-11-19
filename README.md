@@ -1,4 +1,227 @@
-This is a template for Spark! DS 519 projects. It has pre-configured eslint.config.mjs - ([`ESLint`](https://eslint.org/)) and .prettierrc - ([`Prettier`](https://prettier.io/)) to reflect industry standard development guidelines.
+# STAR Lab Video Engagement Study Platform
+
+A platform for running short-form video studies (like TikTok, Reels or YouTube Shorts) on a lab tablet.
+Researchers build studies on a website; participants watch and respond on the tablet; the responses come back to the
+website to download.
+
+- **Part 1, [Using the platform](#part-1-using-the-platform):** for researchers and lab staff. No coding needed.
+- **Part 2, [For developers](#part-2-for-developers):** running, changing and deploying the code.
+
+# Part 1: Using the platform
+
+## The two parts
+
+| Part                | Who uses it  | Address                                                                                                        |
+| ------------------- | ------------ | -------------------------------------------------------------------------------------------------------------- |
+| **Researcher site** | Researchers  | [se-starlab-video-engagement.vercel.app/researcher](https://se-starlab-video-engagement.vercel.app/researcher) |
+| **Participant app** | Participants | [se-starlab-video-engagement.vercel.app](https://se-starlab-video-engagement.vercel.app), on the lab tablet    |
+
+Bookmark the researcher site. The participant app has no link to it, so participants never see it.
+
+## 1. Sign in
+
+1. Go to the researcher site and enter the email and password a lab admin gave you.
+2. You land on your **studies list**.
+3. To sign out or change your password, use the menu with your email at the top of the page.
+
+**Forgot your password?** Select **Forgot password?** on the sign-in page, enter your email, and select **Send reset
+link**. The email's link opens a page where you choose a new password. If no email arrives within a few minutes, ask a
+lab admin.
+
+**No account yet?** Ask a lab admin (see [Managing researcher access](#managing-researcher-access-admins)).
+
+## 2. Create a study
+
+On the studies list, select **Create new**.
+
+1. **Name the study.**
+2. **Choose the settings:**
+   - **Randomization:** show blocks in the order you set, shuffle all of them, or shuffle within groups.
+   - **Progress bar, swipe back, pause:** whether participants see a video progress bar, can swipe back to
+     an earlier video, and can tap to pause.
+   - **Response buttons:** the like / dislike buttons beside each video. You can change their labels or icons, or
+     turn them off.
+   - **Recording:** optionally record the participant's audio and/or camera for the whole session.
+3. **Add blocks.** A study is a list of blocks, shown one per screen:
+   - **Instructions:** text the participant reads.
+   - **Video:** a video file from your computer, with an optional caption.
+   - **Survey:** a question with two or more answer options.
+
+   Every block needs a **label**. It identifies that block in the downloaded data. Blocks appear as small cards, three
+   per row, in the order participants see them (left to right, then the next row). Select a card or its pencil icon to
+   edit it in a popup. Drag a card to move it, or use the ← → arrows on it.
+
+   **Reuse earlier work:** select **Import from library** next to Add block, or open the **Block library** tab. Each
+   earlier study is one card; select it to see its blocks (instructions, videos and surveys, in order) and button
+   icons in a list. Tick the blocks you want (choose icons with **Use for Like / Use for Dislike**) and select
+   **Done**; you can pick from several studies. Then choose **At the end** or the spot to put them and select
+   **Import**. Imported blocks are copies: change them freely, then select Save. Their videos are copied into the new
+   study, so deleting the old study does not affect them.
+
+4. Select **Save study**. Videos upload while it saves, which can take a minute for large files.
+
+**You can keep editing a study after participants have run it.** Open it with **Edit**, make your changes and select
+**Save changes** at the bottom. Changes apply to the next participants; responses already collected keep what those
+participants saw. The one thing you can't do is remove a block that already has participant data.
+
+## 3. Run a session on the tablet
+
+1. Open the **STAR Lab** app on the tablet. (First time on a new tablet? See
+   [Set up a tablet](#5-set-up-a-tablet-once-per-device).)
+2. **Pick the study.** The app downloads all its videos first, so playback never stalls. Wait for it to finish.
+   If the study records audio or video, allow the camera/microphone when asked.
+3. **Enter the Participant ID**, then hand the tablet to the participant.
+4. The participant swipes **up** for the next screen (and **down** to go back, if the study allows it), and taps
+   the buttons to respond.
+5. At the end they see **"Thank you!"**. Tap to continue: the app returns to the study list, ready for the next
+   participant.
+
+**Ending a session early:** tap the **top-left corner 5 times quickly** and enter the researcher PIN. Responses from
+an ended session are not saved.
+
+**No internet?** The tablet keeps the responses ("Saved on this tablet") and uploads them automatically the next time
+the app is opened online. Don't clear Chrome's site data on the tablet, or waiting responses are lost.
+
+## 4. Get the data
+
+On the studies list, select **View data** for a study.
+
+- Each row is one session: participant, start time, **Completed** or **Incomplete**, and duration.
+- **Inspect** shows what that participant did on each block.
+- **Download CSV** gives one spreadsheet. **Download ZIP** gives the combined spreadsheet plus one file per session.
+  Both open in Excel.
+- **Recording** opens a session's audio/video, if the study recorded.
+
+Each spreadsheet row is one block a participant viewed, with: watch time, like/dislike and how long it took, survey
+answer and how long it took, pauses, and whether they swiped back. A block viewed twice (after swiping back) gets two
+rows.
+
+## 5. Set up a tablet (once per device)
+
+The participant app is made for **Android tablets with Google Chrome**.
+
+1. In Chrome, open **se-starlab-video-engagement.vercel.app**, then **⋮ menu → Install app**. Open it from the home
+   screen from now on: it runs fullscreen in portrait.
+2. Open **Device check** (bottom of the app's study list). Tap **Request** next to persistent storage, then
+   **Copy report** and send it to the team.
+3. **Lock the tablet to the app:** Settings → Security → More security settings → **App pinning**, on, with
+   **Ask for PIN before unpinning**. To pin: open the app, open Recents, tap the app's icon, choose **Pin**.
+4. Recommended settings, so every participant gets the same experience:
+   - **Do Not Disturb** on, notifications off
+   - Auto-brightness off; screen timeout at its longest
+   - Battery saver off for Chrome; keep the tablet charging during sessions
+   - Automatic date and time on
+   - Volume fixed at one level (mark it with a label)
+   - Automatic updates for Chrome and Android off during a study
+
+## 6. Before each session
+
+1. Tablet charged, on Wi-Fi, Do Not Disturb on.
+2. Open the app, pick the study, wait for the download to finish.
+3. Pin the app.
+4. Enter the Participant ID and hand the tablet over.
+5. Afterwards, check the session appears on the study's **View data** page.
+
+## Managing researcher access (admins)
+
+Access is managed in the Supabase dashboard (project "Starlab Video Project"). You need the Owner, Administrator or
+Developer role there. A researcher needs **an account** and **a place on the researcher list**.
+
+**Add a researcher**
+
+1. **Create the account** under **Authentication → Users → Add user**, in one of two ways:
+   - **Create new user** (works without email setup): enter their email and a temporary password, check **Auto
+     Confirm User**, and send them the password privately. They can change it after signing in.
+   - **Send invitation**: they get an email with a link to choose their own password. Needs working email (see
+     below).
+2. **Add them to the researcher list.** Open the **SQL Editor**, paste this with their email, and select **Run**:
+
+   ```sql
+   insert into public.researchers (user_id, email)
+   select id, email from auth.users
+   where email = 'name@bu.edu';   -- several: where email in ('a@bu.edu', 'b@bu.edu')
+   ```
+
+**Remove a researcher:** in the SQL Editor, run `delete from public.researchers where email = 'name@bu.edu';`. To
+delete their account too, delete the user under Authentication → Users.
+
+**Reset someone's password by hand:** Authentication → Users → the user's menu. Researchers can also reset their own
+with **Forgot password?**.
+
+**Keep public sign-ups off:** Authentication → Sign In / Providers → "Allow new users to sign up" stays **off**.
+Leave the **Email** provider itself on, or no one can sign in.
+
+**Email (invites and password resets)** needs two settings:
+
+- **Authentication → URL Configuration:** set **Site URL** to `https://se-starlab-video-engagement.vercel.app`, and
+  add `https://se-starlab-video-engagement.vercel.app/researcher/reset-password` under **Redirect URLs**. Otherwise
+  email links point to the wrong address.
+- **Authentication → SMTP Settings:** Supabase's built-in email sends only a few messages an hour and is meant for
+  testing. For real use, connect a lab or university email account here. Until then, use **Create new user**.
+
+## Troubleshooting
+
+| You see                                                  | What to do                                                                              |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| "Invalid login credentials"                              | Check the email and password, or use **Forgot password?**                               |
+| A reset or invite link "has expired or was already used" | Request a new one with **Forgot password?**                                             |
+| "This account is not on the researcher list"             | An admin adds you to the list (above)                                                   |
+| "Email not confirmed"                                    | An admin confirms the account under Authentication → Users                              |
+| "Could not reach the server"                             | Check the internet; if it persists, an admin checks the Supabase project isn't paused   |
+| A Vercel login page                                      | You opened an old deployment link. Use the addresses in [The two parts](#the-two-parts) |
+| "No studies available." on the tablet                    | No study has been saved yet, or the tablet is offline                                   |
+| "Loading failed" on the tablet                           | Check the Wi-Fi and pick the study again                                                |
+| "Block … has participant data and cannot be removed"     | Undo removing that block, then save                                                     |
+
+# Part 2: For developers
+
+This repository started from the Spark! DS 519 template. It has pre-configured eslint.config.mjs -
+([`ESLint`](https://eslint.org/)) and .prettierrc - ([`Prettier`](https://prettier.io/)) to reflect industry standard
+development guidelines.
+
+**Deployment:** the live site is hosted on Vercel and uses the cloud Supabase project. Vercel needs
+`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `NEXT_PUBLIC_RESEARCHER_PIN` (never the secret
+key). New migrations go to the cloud with `npx supabase db push` after `npx supabase link`. The allow-list table
+behind researcher login comes from `supabase/migrations/20261114000100_researcher_access.sql`.
+
+## Running the Whole Platform Locally
+
+Three parts run on your machine:
+
+| Part                   | What it is                                               | Address                                                                                        |
+| ---------------------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Supabase               | Postgres, Storage and the API, in Docker                 | API http://127.0.0.1:54321, Studio http://127.0.0.1:54323                                      |
+| Next.js app            | Researcher website and participant tablet app (one app) | http://localhost:3000/researcher/studies and http://localhost:3000/tablet                      |
+| Python backend         | FastAPI in Docker (`/health` only for now)               | http://localhost:8000                                                                          |
+
+Both front ends talk to Supabase directly with the publishable key. Access rules (RLS), the `submit_run`
+function and a lock-after-runs trigger in `supabase/migrations/` act as the backend. See
+[docs/supabase-alignment.md](docs/supabase-alignment.md) for the contract between the apps and the tables.
+
+Prerequisites: Node (see `.nvmrc`) and Docker Desktop, running.
+
+```bash
+npm install
+npx supabase start                    # first run downloads the Supabase images
+cp .env.example .env.local            # then fill in the two NEXT_PUBLIC_SUPABASE_* values
+cp backend/.env.example backend/.env  # then fill in SUPABASE_SECRET_KEY
+npx supabase status                   # prints the API URL, Publishable key and Secret key to copy
+docker compose up -d                  # Python backend
+npm run dev                           # researcher website + tablet app
+```
+
+`npx supabase start` creates the tables from `supabase/migrations/` and then runs `supabase/seed.sql`.
+The seed creates a **local-only** test researcher, `researcher@starlab.test` / `starlab-local`, already on the
+allow-list. It is never sent to the cloud project (`npx supabase db push` does not run the seed). To wipe local data
+and rebuild the database from scratch, run `npx supabase db reset`. If you only ran `npx supabase migration up` on an
+existing database, the seed did not run: load it with
+`docker exec -i supabase_db_se-starlab-video-engagement psql -U postgres < supabase/seed.sql`.
+
+Try it end to end: sign in at `/researcher`, create and save a study, open `/tablet`, pick the study, run it
+with any Participant ID, then open the study's **View data** page (or the `export_rows` view in Studio).
+
+Without the `NEXT_PUBLIC_SUPABASE_*` values the tablet falls back to the mock study in
+`public/mock/studies.json` and the researcher pages run as a preview with saving disabled.
 
 ## Setting Up Your Developer Experience
 
@@ -89,7 +312,6 @@ You can run your tests using the following npm scripts:
 To maintain code quality and prevent regressions, this template uses [Husky](https://typicode.github.io/husky/) to manage Git hooks. The following hooks are configured:
 
 - **`pre-commit`**: Before any commit is finalized, this hook runs:
-
   1.  `npx lint-staged`: Lints and formats staged files (`*.{js,jsx,ts,tsx}`) using ESLint and Prettier.
   2.  `npm test`: Runs the entire test suite.
       If either linting/formatting fails or any test fails, the commit will be aborted, allowing you to fix the issues before committing.
@@ -131,3 +353,225 @@ Most projects will require the use of other technologies. Below are a few guides
 - [Clerk Setup w/ Next.js](https://clerk.com/docs/quickstarts/nextjs) - Clerk will be the default user authentication software for all new Spark! projects. Please reach out to Omar for creating and retrieving API keys for your project. Do NOT use firebase/auth even if your project uses Firestore.
 - ### Component Libraries
   All new projects will be required to use a [design system](https://www.figma.com/blog/design-systems-101-what-is-a-design-system/) You will receive designs from your DS488 design team which will utilize a design kit. Use the corresponding component library to implement those designs on the front end of your project.
+
+## Participant Tablet App (`/tablet`)
+
+The participant app is a fullscreen web app at `/tablet`, built for Android tablets running Chrome.
+The flow is: pick a study → all videos download up front → enter a Participant ID → swipe through the blocks → results upload.
+
+- **Studies** come from Supabase when `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` are set (the same project the researcher pages at `/researcher/studies` write to); otherwise from `public/mock/studies.json` (sample videos in `public/mock/videos/`).
+  See [Connecting the researcher front end](#connecting-the-researcher-front-end).
+- **Swipe direction:** TikTok-style. Swipe **up** for the next block and **down** to go back (when the study allows it).
+  To reverse it, set `NEXT_GESTURE` in `app/components/ReelsViewport/ReelsViewport.tsx` to `'down'`.
+- **Laptop testing:** open `localhost:3000/tablet`. On a laptop the app shows as a phone-shaped column, like YouTube Shorts; on a touch tablet it fills the screen.
+  Move between blocks by dragging with the mouse, scrolling with the trackpad or mouse wheel, or pressing the ↓ / ↑ arrow keys.
+  Use Chrome: Safari blocks typing while a page is fullscreen.
+- **Researcher exit:** tap the top-left corner 5 times quickly, then enter the PIN (`NEXT_PUBLIC_RESEARCHER_PIN`, default `0000`).
+- **Results:** each finished session is saved on the tablet first, then uploaded. Failed uploads retry when the app is next opened.
+
+### How a study is defined
+
+The tablet app has **no study content built in**. Everything a participant sees comes from one `Study` object, which the researcher front end creates.
+The exact format is in [`app/types/study.types.ts`](app/types/study.types.ts); that file is the contract between the two front ends.
+
+A study is a list of **blocks**, shown in order (unless randomized). There are three kinds:
+
+| `type`         | What it shows                    | Fields                                                              |
+| -------------- | -------------------------------- | ------------------------------------------------------------------- |
+| `instructions` | A text screen                    | `text`                                                              |
+| `video`        | A full-screen looping video      | `videoUrl`, `fileName`, optional `title`, `description`           |
+| `survey`       | A question with tappable options | `prompt`, `options` (list of answer strings)                        |
+
+Every block also has an `id` (unique within the study), a `label` (the name used in the results, e.g. `"survey1"`), and an optional `randomGroup` (see below).
+
+**To add, remove or reorder videos and surveys, edit the `blocks` list.** Nothing in the tablet code refers to a particular block.
+
+A minimal study:
+
+```json
+{
+  "id": "my-study",
+  "name": "My Study",
+  "randomized": false,
+  "display": { "videoBar": true, "leftText": "Dislike", "rightText": "Like" },
+  "controls": {
+    "swipeUp": true,
+    "responseButtons": true,
+    "pausing": true,
+    "audioRecord": false,
+    "cameraRecord": false
+  },
+  "blocks": [
+    { "id": "b1", "type": "instructions", "label": "instruction1", "text": "Swipe up to begin." },
+    {
+      "id": "b2",
+      "type": "video",
+      "label": "video1",
+      "videoUrl": "https://example.com/videos/cat.mp4",
+      "fileName": "cat.mp4",
+      "title": "My cat",
+      "description": "Caption text under the title"
+    },
+    { "id": "b3", "type": "survey", "label": "survey1", "prompt": "Did you enjoy it?", "options": ["Yes", "No"] }
+  ]
+}
+```
+
+`public/mock/studies.json` has a fuller example with every feature turned on.
+
+#### Turning features on and off
+
+The newer settings (`randomGroup` and captions) can be left out entirely: left out means **off**, or the default shown, so older studies keep working. The rest are required.
+
+| Setting                          | Where      | What it does                                                                                         |
+| -------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------- |
+| `display.videoBar`               | `display`  | Thin progress bar along the bottom of each video                                                     |
+| `display.leftText` / `rightText` | `display`  | Labels under the dislike / like buttons (`""` for none)                                              |
+| `display.leftIcon` / `rightIcon` | `display`  | Image URLs to replace the thumbs-down / thumbs-up icons                                              |
+| `controls.responseButtons`       | `controls` | Show the like / dislike buttons (the main recorded response)                                         |
+| `controls.pausing`               | `controls` | Tapping the video pauses / resumes it; pause count and paused time are recorded                      |
+| `controls.swipeUp`               | `controls` | Participants can swipe back to the previous block                                                    |
+| `randomized`                     | study      | Shuffle every block for each participant                                                             |
+| `randomGroup`                    | block      | Blocks with the same `randomGroup` name are shuffled among themselves; all other blocks stay put     |
+| video `title` / `description`    | block      | Caption in the bottom-left of the video. Blank hides it                                              |
+
+Captions are just text. There are no comment, share or save buttons: the only responses on a video are like / dislike, tap-to-pause and swiping.
+
+### Connecting the researcher front end
+
+The researcher front end (a separate app) and the tablet only need to agree on two things, both defined in `app/types/study.types.ts`:
+
+1. **`Study`**: what the researcher front end saves and the tablet reads.
+2. **`RunResult`**: what the tablet produces for each participant and the backend stores.
+
+The tablet talks to the backend through one interface, `StudyRepository` in `app/utils/studies/StudyRepository.ts`:
+
+```ts
+interface StudyRepository {
+  listStudies(): Promise<{ id: string; name: string }[]>; // the "Please Select Study" list
+  getStudy(id: string): Promise<Study>; // the full study, fetched when it's selected
+  submitRun(run: RunResult, recording?: Blob | null): Promise<void>; // one finished session (+ its recording); reject on failure so it is retried
+}
+```
+
+**The Supabase implementation is in place:** `app/utils/studies/supabaseRepository.ts`, using the row ↔ `Study` / `RunResult` conversions in `app/utils/studies/supabaseMapping.ts`. `app/utils/studies/index.ts` picks it automatically when the two Supabase env vars are set, and falls back to the mock otherwise. Runs are uploaded through the `submit_run` database function, which ignores a retried upload of the same session. Field-by-field mapping, migrations and access rules: [`docs/supabase-alignment.md`](docs/supabase-alignment.md).
+
+To use a different backend instead:
+
+1. Write a new implementation next to `mockRepository.ts`. For a plain REST API it is about this much code:
+
+   ```ts
+   // app/utils/studies/httpRepository.ts
+   import type { RunResult, Study } from '@/app/types';
+   import type { StudyRepository, StudySummary } from './StudyRepository';
+
+   const API = process.env.NEXT_PUBLIC_API_URL;
+
+   async function request<T>(path: string, init?: RequestInit): Promise<T> {
+     const response = await fetch(`${API}${path}`, init);
+     if (!response.ok) throw new Error(`${path} failed (${response.status})`);
+     return response.status === 204 ? (undefined as T) : response.json();
+   }
+
+   export const httpRepository: StudyRepository = {
+     listStudies: () => request<StudySummary[]>('/studies'),
+     getStudy: (id) => request<Study>(`/studies/${encodeURIComponent(id)}`),
+     submitRun: (run: RunResult) =>
+       request<void>('/runs', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify(run),
+       }),
+   };
+   ```
+
+   Firebase or anything else works the same way: just fill in those three functions.
+
+2. Change `app/utils/studies/index.ts` to `export const studyRepository = httpRepository;`.
+
+Things to keep in mind:
+
+- **Edits apply from the next session.** The tablet fetches the study when it is selected, so changes made in the researcher front end show up for the next participant.
+- **Video and icon URLs are downloaded with `fetch`** before the session starts, so the server hosting them must allow the tablet's origin (CORS), and the URLs must be reachable from the tablet.
+- **New block types need tablet code.** Researchers can use instructions, video and survey blocks in any number and order; a brand-new kind of block (e.g. an image or free-text question) needs a new slide component.
+
+### Getting the results (CSV / data)
+
+When a participant finishes, the tablet calls `submitRun(run)` with a `RunResult`. That JSON object is the raw data; store it as-is (e.g. one row in a `runs` table, or one document per run).
+
+```jsonc
+{
+  "studyId": "my-study",
+  "studyName": "My Study",
+  "participantId": "P001",
+  "startedAtIso": "2026-10-26T15:00:00.000Z",
+  "completedAtIso": "2026-10-26T15:04:12.000Z",
+  "blockOrder": ["b1", "b2", "b3"], // order this participant saw (differs when randomized)
+  "rows": [
+    {
+      "blockId": "b2",
+      "order": 2,
+      "stimulus": "cat.mp4", // video fileName, or the block label
+      "watchTimeMs": 8123,
+      "swipedUp": 0, // 1 if they left by swiping back
+      "likeDislike": "Like", // videos: "Like" (top button) or "Dislike" (bottom button); null if neither
+      "likeDislikeTimeMs": 2410,
+      "surveyAnswer": null, // surveys: the option picked; null on other blocks
+      "surveyTimeMs": null,
+      "videoStartAtIso": "2026-10-26T15:00:05.112Z", // first frame played; null for non-video blocks
+      "videoEndAtIso": "2026-10-26T15:00:13.123Z", // when they left the video (videos loop)
+      "pauseCount": 1, // tap-to-pause count
+      "pausedMs": 1450, // total time paused by those taps
+      "startedAtIso": "2026-10-26T15:00:05.000Z",
+    },
+  ],
+  "recording": { "mimeType": "video/webm", "startedAtIso": "2026-10-26T15:00:04.950Z" }, // only when the study records
+}
+```
+
+There is **one row per viewing**: if a participant swipes back to a block, that return visit is a new row. All times are milliseconds measured from when the block appeared.
+
+**To turn a run into a CSV**, use the helpers in `app/utils/runner/toCsvRows.ts` (a TypeScript researcher front end or Node backend can import them directly):
+
+```ts
+import { toCsv } from '@/app/utils/runner';
+
+const csvText = toCsv(run); // one CSV per participant session
+```
+
+The CSV follows the design document's layout, with the side-button columns added at the end:
+
+| Column         | From            | Notes                                              |
+| -------------- | --------------- | -------------------------------------------------- |
+| `Blocks`       | `blockId`       | First two rows are `Study_ID` and `Participant_ID` |
+| `Order`        | `order + 2`     |                                                    |
+| `Stimuli`      | `stimulus`      |                                                    |
+| `Watch_time`   | `watchTimeMs`   | e.g. `8123 ms`                                     |
+| `Swipe_up?`    | `swipedUp`      | `0` / `1`                                          |
+| `Like_dislike` | `likeDislike`   | `Like` / `Dislike`, `0` if none                    |
+| `Like_dislike_time` | `likeDislikeTimeMs` | `0` if none                               |
+| `Survey_answer` | `surveyAnswer` | The option picked, `0` if none                     |
+| `Survey_time`  | `surveyTimeMs`  | `0` if none                                        |
+| `Video_start_timestamp` | `videoStartAtIso` | ISO time, `0` if none                     |
+| `Video_end_timestamp`   | `videoEndAtIso`   | ISO time, `0` if none                     |
+| `Pause_count`  | `pauseCount`    |                                                    |
+| `Paused_time`  | `pausedMs`      | e.g. `1450 ms`                                     |
+
+If the backend is in another language (e.g. Python), store the JSON and rebuild the CSV from this table; it is a straight field-by-field mapping.
+
+**While still on the mock backend**, finished runs are kept in the browser's localStorage. To grab them, open DevTools on the tablet page and run:
+
+```js
+JSON.parse(localStorage.getItem('mock-submitted-runs'));
+```
+
+### Tablet setup (kiosk mode)
+
+Installing the app and locking the tablet are covered in
+[Part 1: Set up a tablet](#5-set-up-a-tablet-once-per-device). For stricter labs, a kiosk browser such as Fully Kiosk
+Browser can lock the tablet further.
+
+Fullscreen and keep-screen-awake only work over HTTPS (or `localhost`). To test on a tablet against your laptop, either:
+
+- connect over USB and use `chrome://inspect` → **Port forwarding** (`3000 → localhost:3000`), then open `localhost:3000/tablet` on the tablet, or
+- run `npx next dev --experimental-https -H 0.0.0.0` and open `https://<your-laptop-ip>:3000/tablet`.

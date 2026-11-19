@@ -1,0 +1,17 @@
+# Runs the Python backend for local development.
+# Supabase (Postgres, Auth, Storage) is started separately with `npx supabase start`.
+
+services:
+  backend:
+    build: ./backend
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    env_file:
+      - ./backend/.env
+    ports:
+      - '8000:8000'
+    volumes:
+      # Mount the source so code changes reload without rebuilding.
+      - ./backend:/code
+    extra_hosts:
+      # Lets the container reach Supabase on the host machine (needed on Linux).
+      - 'host.docker.internal:host-gateway'

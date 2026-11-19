@@ -1,0 +1,80 @@
+/* Sign-in, forgot-password and new-password pages. Colour tokens and form controls come from .workspace in StudyBuilder.module.css. */
+.page {
+  display: grid;
+  place-items: center;
+  min-height: calc(100vh - 85px);
+  padding: 40px 16px;
+}
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+  max-width: 380px;
+  padding: 32px 28px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.card > div,
+.card > p {
+  margin: 0;
+}
+.heading {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.title {
+  font-size: 20px;
+  font-weight: 650;
+  margin: 0;
+}
+.intro {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+/* Label row with a link on the right, e.g. Password … Forgot password? */
+.labelRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.textLink {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--red);
+  text-decoration: none;
+}
+.textLink:hover,
+.textLink:focus-visible {
+  text-decoration: underline;
+}
+.linkButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+.footer {
+  font-size: 14px;
+  text-align: center;
+}
+.success {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: #eef7f0;
+  border: 1px solid #cfe6d6;
+  color: #367250;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}

@@ -22,6 +22,7 @@ export function createResearcherWorkspace() {
       'app/layout.tsx',
       'app/globals.css',
       'app/components/ErrorBoundary',
+      'app/utils/supabase',
       'package.json',
       'package-lock.json',
       'tsconfig.json',

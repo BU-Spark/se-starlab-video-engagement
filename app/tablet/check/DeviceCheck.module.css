@@ -1,0 +1,172 @@
+/* Same black frame as the other tablet setup screens, but top-aligned and scrollable for a long list. */
+.screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 2rem 1.25rem 3rem;
+  background: #000;
+  color: #fff;
+  overflow-y: auto;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* Keep every block at full height so the page scrolls instead of squeezing the list. */
+.screen > * {
+  flex-shrink: 0;
+}
+
+.header {
+  text-align: center;
+}
+
+.logo {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #cc0000;
+}
+
+.title {
+  margin-top: 0.25rem;
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+.intro {
+  margin-top: 0.5rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.summary,
+.list,
+.actions {
+  width: 100%;
+  max-width: 40rem;
+}
+
+.summary {
+  padding: 0.85rem 1rem;
+  border-radius: 0.75rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.summaryOk {
+  background: rgba(70, 190, 110, 0.18);
+  color: #8ee6a8;
+}
+
+.summaryWarn {
+  background: rgba(240, 180, 40, 0.18);
+  color: #ffd27a;
+}
+
+.summaryFail {
+  background: rgba(255, 90, 90, 0.18);
+  color: #ff9a9a;
+}
+
+.list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  border-radius: 0.75rem;
+  background: #111;
+  overflow: hidden;
+}
+
+.row {
+  padding: 0.75rem 1rem;
+  border-left: 4px solid transparent;
+}
+
+.row + .row {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.row[data-status='ok'] {
+  border-left-color: #46be6e;
+}
+
+.row[data-status='warn'] {
+  border-left-color: #f0b428;
+}
+
+.row[data-status='fail'] {
+  border-left-color: #ff5a5a;
+}
+
+.rowMain {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.75rem;
+}
+
+.label {
+  flex: 1 1 12rem;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.value {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.badge {
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.row[data-status='ok'] .badge {
+  background: rgba(70, 190, 110, 0.2);
+  color: #8ee6a8;
+}
+
+.row[data-status='warn'] .badge {
+  background: rgba(240, 180, 40, 0.2);
+  color: #ffd27a;
+}
+
+.row[data-status='fail'] .badge {
+  background: rgba(255, 90, 90, 0.2);
+  color: #ff9a9a;
+}
+
+.hint {
+  margin-top: 0.35rem;
+  font-size: 0.92rem;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.inlineButton {
+  margin-top: 0.5rem;
+  min-height: 2.5rem;
+  padding: 0 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 0.5rem;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.linkButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}

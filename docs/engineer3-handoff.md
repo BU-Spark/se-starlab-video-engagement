@@ -1,5 +1,7 @@
 # Engineer 3 API Handoff
 
+> **Superseded for study creation (2026-10-28).** The team schema uses Supabase tables `studies` and `blocks`, and the researcher frontend now writes them directly. See [supabase-alignment.md](supabase-alignment.md). The FastAPI contract below is kept for reference only.
+
 Page: `/researcher/studies/new`  
 Frontend owner: Engineer 1 / Louis  
 Backend owner: Engineer 3  

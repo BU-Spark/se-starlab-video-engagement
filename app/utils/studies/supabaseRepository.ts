@@ -1,0 +1,85 @@
+/**
+ * app/utils/studies/supabaseRepository.ts
+ *
+ * StudyRepository backed by the Supabase project the researcher website writes to.
+ * Reads studies/blocks and signs media URLs; uploads runs through the submit_run database function,
+ * which stores a run and its block views in one transaction and ignores retries of the same run.
+ * A session recording is uploaded to the run-recordings bucket first, so the run can point at it.
+ */
+
+import type { RunResult, Study } from '@/app/types';
+import { getSupabase, STUDY_MEDIA_BUCKET } from '@/app/utils/supabase/client';
+import { RUN_RECORDINGS_BUCKET, type BlockRow, type StudyRow } from '@/app/utils/supabase/database.types';
+import type { StudyRepository, StudySummary } from './StudyRepository';
+import {
+  mediaPathsOf,
+  recordingPathFor,
+  rowsToStudy,
+  runIdFor,
+  toSubmitRunPayload,
+  type MediaUrls,
+} from './supabaseMapping';
+
+/** Long enough to preload and run a session; files are downloaded before the participant starts. */
+const SIGNED_URL_SECONDS = 2 * 60 * 60;
+
+function client() {
+  const supabase = getSupabase();
+  if (!supabase) throw new Error('Supabase is not configured (NEXT_PUBLIC_SUPABASE_URL / _PUBLISHABLE_KEY).');
+  return supabase;
+}
+
+async function signedUrls(paths: string[]): Promise<MediaUrls> {
+  if (!paths.length) return {};
+  const { data, error } = await client().storage.from(STUDY_MEDIA_BUCKET).createSignedUrls(paths, SIGNED_URL_SECONDS);
+  if (error) throw new Error(`Could not prepare media downloads: ${error.message}`);
+  const urls: MediaUrls = {};
+  for (const item of data ?? []) if (item.path && item.signedUrl) urls[item.path] = item.signedUrl;
+  return urls;
+}
+
+export const supabaseRepository: StudyRepository = {
+  async listStudies(): Promise<StudySummary[]> {
+    const { data, error } = await client().from('studies').select('id,name').order('name');
+    if (error) throw new Error(`Could not load studies: ${error.message}`);
+    return (data ?? []) as StudySummary[];
+  },
+
+  async getStudy(id: string): Promise<Study> {
+    const supabase = client();
+    const [study, blocks] = await Promise.all([
+      supabase.from('studies').select('*').eq('id', id).maybeSingle(),
+      supabase.from('blocks').select('*').eq('study_id', id).order('position'),
+    ]);
+    if (study.error) throw new Error(`Could not load the study: ${study.error.message}`);
+    if (blocks.error) throw new Error(`Could not load the study blocks: ${blocks.error.message}`);
+    if (!study.data) throw new Error(`Study "${id}" not found`);
+    const row = study.data as StudyRow;
+    const blockRows = (blocks.data ?? []) as BlockRow[];
+    return rowsToStudy(row, blockRows, await signedUrls(mediaPathsOf(row, blockRows)));
+  },
+
+  async submitRun(run: RunResult, recording?: Blob | null): Promise<void> {
+    // The researcher may have deleted the study since this session ran: its data goes with it.
+    const exists = await client().from('studies').select('id').eq('id', run.studyId).maybeSingle();
+    if (exists.error) throw new Error(`Upload failed: ${exists.error.message}`);
+    if (!exists.data) {
+      console.warn('[tablet] Study was deleted; dropping its queued run');
+      return;
+    }
+    const runId = runIdFor(run);
+    let recordingPath: string | null = null;
+    if (run.recording && recording) {
+      recordingPath = recordingPathFor(run.studyId, runId, run.recording.mimeType);
+      const { error } = await client()
+        .storage.from(RUN_RECORDINGS_BUCKET)
+        .upload(recordingPath, recording, { contentType: run.recording.mimeType, upsert: false });
+      // The tablet may not overwrite or read recordings; "already exists" means an earlier attempt uploaded it.
+      const alreadyUploaded = error && /exists|duplicate/i.test(error.message);
+      if (error && !alreadyUploaded) throw new Error(`Recording upload failed: ${error.message}`);
+    }
+    const payload = toSubmitRunPayload(run, runId, recordingPath);
+    const { error } = await client().rpc('submit_run', { run: payload });
+    if (error) throw new Error(`Upload failed: ${error.message}`);
+  },
+};
