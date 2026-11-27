@@ -11,10 +11,10 @@ website to download.
 
 ## The two parts
 
-| Part                | Who uses it  | Address                                                                                                        |
-| ------------------- | ------------ | -------------------------------------------------------------------------------------------------------------- |
-| **Researcher site** | Researchers  | [se-starlab-video-engagement.vercel.app/researcher](https://se-starlab-video-engagement.vercel.app/researcher) |
-| **Participant app** | Participants | [se-starlab-video-engagement.vercel.app](https://se-starlab-video-engagement.vercel.app), on the lab tablet    |
+| Part                | Who uses it  | Address                                                                                                                                      |
+| ------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Researcher site** | Researchers  | [se-starlab-video-engagement-production.up.railway.app/researcher](https://se-starlab-video-engagement-production.up.railway.app/researcher) |
+| **Participant app** | Participants | [se-starlab-video-engagement-production.up.railway.app](https://se-starlab-video-engagement-production.up.railway.app), on the lab tablet    |
 
 Bookmark the researcher site. The participant app has no link to it, so participants never see it.
 
@@ -100,7 +100,7 @@ rows.
 
 The participant app is made for **Android tablets with Google Chrome**.
 
-1. In Chrome, open **se-starlab-video-engagement.vercel.app**, then **⋮ menu → Install app**. Open it from the home
+1. In Chrome, open **se-starlab-video-engagement-production.up.railway.app**, then **⋮ menu → Install app**. Open it from the home
    screen from now on: it runs fullscreen in portrait.
 2. Open **Device check** (bottom of the app's study list). Tap **Request** next to persistent storage, then
    **Copy report** and send it to the team.
@@ -153,25 +153,25 @@ Leave the **Email** provider itself on, or no one can sign in.
 
 **Email (invites and password resets)** needs two settings:
 
-- **Authentication → URL Configuration:** set **Site URL** to `https://se-starlab-video-engagement.vercel.app`, and
-  add `https://se-starlab-video-engagement.vercel.app/researcher/reset-password` under **Redirect URLs**. Otherwise
+- **Authentication → URL Configuration:** set **Site URL** to `https://se-starlab-video-engagement-production.up.railway.app`, and
+  add `https://se-starlab-video-engagement-production.up.railway.app/researcher/reset-password` under **Redirect URLs**. Otherwise
   email links point to the wrong address.
 - **Authentication → SMTP Settings:** Supabase's built-in email sends only a few messages an hour and is meant for
   testing. For real use, connect a lab or university email account here. Until then, use **Create new user**.
 
 ## Troubleshooting
 
-| You see                                                  | What to do                                                                              |
-| -------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| "Invalid login credentials"                              | Check the email and password, or use **Forgot password?**                               |
-| A reset or invite link "has expired or was already used" | Request a new one with **Forgot password?**                                             |
-| "This account is not on the researcher list"             | An admin adds you to the list (above)                                                   |
-| "Email not confirmed"                                    | An admin confirms the account under Authentication → Users                              |
-| "Could not reach the server"                             | Check the internet; if it persists, an admin checks the Supabase project isn't paused   |
-| A Vercel login page                                      | You opened an old deployment link. Use the addresses in [The two parts](#the-two-parts) |
-| "No studies available." on the tablet                    | No study has been saved yet, or the tablet is offline                                   |
-| "Loading failed" on the tablet                           | Check the Wi-Fi and pick the study again                                                |
-| "Block … has participant data and cannot be removed"     | Undo removing that block, then save                                                     |
+| You see                                                  | What to do                                                                            |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| "Invalid login credentials"                              | Check the email and password, or use **Forgot password?**                             |
+| A reset or invite link "has expired or was already used" | Request a new one with **Forgot password?**                                           |
+| "This account is not on the researcher list"             | An admin adds you to the list (above)                                                 |
+| "Email not confirmed"                                    | An admin confirms the account under Authentication → Users                            |
+| "Could not reach the server"                             | Check the internet; if it persists, an admin checks the Supabase project isn't paused |
+| An old `vercel.app` address or login page                | You opened an old link. Use the addresses in [The two parts](#the-two-parts)          |
+| "No studies available." on the tablet                    | No study has been saved yet, or the tablet is offline                                 |
+| "Loading failed" on the tablet                           | Check the Wi-Fi and pick the study again                                              |
+| "Block … has participant data and cannot be removed"     | Undo removing that block, then save                                                   |
 
 # Part 2: For developers
 
@@ -179,20 +179,20 @@ This repository started from the Spark! DS 519 template. It has pre-configured e
 ([`ESLint`](https://eslint.org/)) and .prettierrc - ([`Prettier`](https://prettier.io/)) to reflect industry standard
 development guidelines.
 
-**Deployment:** the live site is hosted on Vercel and uses the cloud Supabase project. Vercel needs
+**Deployment:** the live site is hosted on Railway and uses the cloud Supabase project. Railway needs
 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `NEXT_PUBLIC_RESEARCHER_PIN` (never the secret
-key). New migrations go to the cloud with `npx supabase db push` after `npx supabase link`. The allow-list table
+key). These values are built into the app, so changing one requires a new build. New migrations go to the cloud with `npx supabase db push` after `npx supabase link`. The allow-list table
 behind researcher login comes from `supabase/migrations/20261114000100_researcher_access.sql`.
 
 ## Running the Whole Platform Locally
 
 Three parts run on your machine:
 
-| Part                   | What it is                                               | Address                                                                                        |
-| ---------------------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| Supabase               | Postgres, Storage and the API, in Docker                 | API http://127.0.0.1:54321, Studio http://127.0.0.1:54323                                      |
-| Next.js app            | Researcher website and participant tablet app (one app) | http://localhost:3000/researcher/studies and http://localhost:3000/tablet                      |
-| Python backend         | FastAPI in Docker (`/health` only for now)               | http://localhost:8000                                                                          |
+| Part           | What it is                                              | Address                                                                   |
+| -------------- | ------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Supabase       | Postgres, Storage and the API, in Docker                | API http://127.0.0.1:54321, Studio http://127.0.0.1:54323                 |
+| Next.js app    | Researcher website and participant tablet app (one app) | http://localhost:3000/researcher/studies and http://localhost:3000/tablet |
+| Python backend | FastAPI in Docker (`/health` only for now)              | http://localhost:8000                                                     |
 
 Both front ends talk to Supabase directly with the publishable key. Access rules (RLS), the `submit_run`
 function and a lock-after-runs trigger in `supabase/migrations/` act as the backend. See
@@ -376,11 +376,11 @@ The exact format is in [`app/types/study.types.ts`](app/types/study.types.ts); t
 
 A study is a list of **blocks**, shown in order (unless randomized). There are three kinds:
 
-| `type`         | What it shows                    | Fields                                                              |
-| -------------- | -------------------------------- | ------------------------------------------------------------------- |
-| `instructions` | A text screen                    | `text`                                                              |
-| `video`        | A full-screen looping video      | `videoUrl`, `fileName`, optional `title`, `description`           |
-| `survey`       | A question with tappable options | `prompt`, `options` (list of answer strings)                        |
+| `type`         | What it shows                    | Fields                                                  |
+| -------------- | -------------------------------- | ------------------------------------------------------- |
+| `instructions` | A text screen                    | `text`                                                  |
+| `video`        | A full-screen looping video      | `videoUrl`, `fileName`, optional `title`, `description` |
+| `survey`       | A question with tappable options | `prompt`, `options` (list of answer strings)            |
 
 Every block also has an `id` (unique within the study), a `label` (the name used in the results, e.g. `"survey1"`), and an optional `randomGroup` (see below).
 
@@ -423,17 +423,17 @@ A minimal study:
 
 The newer settings (`randomGroup` and captions) can be left out entirely: left out means **off**, or the default shown, so older studies keep working. The rest are required.
 
-| Setting                          | Where      | What it does                                                                                         |
-| -------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------- |
-| `display.videoBar`               | `display`  | Thin progress bar along the bottom of each video                                                     |
-| `display.leftText` / `rightText` | `display`  | Labels under the dislike / like buttons (`""` for none)                                              |
-| `display.leftIcon` / `rightIcon` | `display`  | Image URLs to replace the thumbs-down / thumbs-up icons                                              |
-| `controls.responseButtons`       | `controls` | Show the like / dislike buttons (the main recorded response)                                         |
-| `controls.pausing`               | `controls` | Tapping the video pauses / resumes it; pause count and paused time are recorded                      |
-| `controls.swipeUp`               | `controls` | Participants can swipe back to the previous block                                                    |
-| `randomized`                     | study      | Shuffle every block for each participant                                                             |
-| `randomGroup`                    | block      | Blocks with the same `randomGroup` name are shuffled among themselves; all other blocks stay put     |
-| video `title` / `description`    | block      | Caption in the bottom-left of the video. Blank hides it                                              |
+| Setting                          | Where      | What it does                                                                                     |
+| -------------------------------- | ---------- | ------------------------------------------------------------------------------------------------ |
+| `display.videoBar`               | `display`  | Thin progress bar along the bottom of each video                                                 |
+| `display.leftText` / `rightText` | `display`  | Labels under the dislike / like buttons (`""` for none)                                          |
+| `display.leftIcon` / `rightIcon` | `display`  | Image URLs to replace the thumbs-down / thumbs-up icons                                          |
+| `controls.responseButtons`       | `controls` | Show the like / dislike buttons (the main recorded response)                                     |
+| `controls.pausing`               | `controls` | Tapping the video pauses / resumes it; pause count and paused time are recorded                  |
+| `controls.swipeUp`               | `controls` | Participants can swipe back to the previous block                                                |
+| `randomized`                     | study      | Shuffle every block for each participant                                                         |
+| `randomGroup`                    | block      | Blocks with the same `randomGroup` name are shuffled among themselves; all other blocks stay put |
+| video `title` / `description`    | block      | Caption in the bottom-left of the video. Blank hides it                                          |
 
 Captions are just text. There are no comment, share or save buttons: the only responses on a video are like / dislike, tap-to-pause and swiping.
 
@@ -541,21 +541,21 @@ const csvText = toCsv(run); // one CSV per participant session
 
 The CSV follows the design document's layout, with the side-button columns added at the end:
 
-| Column         | From            | Notes                                              |
-| -------------- | --------------- | -------------------------------------------------- |
-| `Blocks`       | `blockId`       | First two rows are `Study_ID` and `Participant_ID` |
-| `Order`        | `order + 2`     |                                                    |
-| `Stimuli`      | `stimulus`      |                                                    |
-| `Watch_time`   | `watchTimeMs`   | e.g. `8123 ms`                                     |
-| `Swipe_up?`    | `swipedUp`      | `0` / `1`                                          |
-| `Like_dislike` | `likeDislike`   | `Like` / `Dislike`, `0` if none                    |
-| `Like_dislike_time` | `likeDislikeTimeMs` | `0` if none                               |
-| `Survey_answer` | `surveyAnswer` | The option picked, `0` if none                     |
-| `Survey_time`  | `surveyTimeMs`  | `0` if none                                        |
-| `Video_start_timestamp` | `videoStartAtIso` | ISO time, `0` if none                     |
-| `Video_end_timestamp`   | `videoEndAtIso`   | ISO time, `0` if none                     |
-| `Pause_count`  | `pauseCount`    |                                                    |
-| `Paused_time`  | `pausedMs`      | e.g. `1450 ms`                                     |
+| Column                  | From                | Notes                                              |
+| ----------------------- | ------------------- | -------------------------------------------------- |
+| `Blocks`                | `blockId`           | First two rows are `Study_ID` and `Participant_ID` |
+| `Order`                 | `order + 2`         |                                                    |
+| `Stimuli`               | `stimulus`          |                                                    |
+| `Watch_time`            | `watchTimeMs`       | e.g. `8123 ms`                                     |
+| `Swipe_up?`             | `swipedUp`          | `0` / `1`                                          |
+| `Like_dislike`          | `likeDislike`       | `Like` / `Dislike`, `0` if none                    |
+| `Like_dislike_time`     | `likeDislikeTimeMs` | `0` if none                                        |
+| `Survey_answer`         | `surveyAnswer`      | The option picked, `0` if none                     |
+| `Survey_time`           | `surveyTimeMs`      | `0` if none                                        |
+| `Video_start_timestamp` | `videoStartAtIso`   | ISO time, `0` if none                              |
+| `Video_end_timestamp`   | `videoEndAtIso`     | ISO time, `0` if none                              |
+| `Pause_count`           | `pauseCount`        |                                                    |
+| `Paused_time`           | `pausedMs`          | e.g. `1450 ms`                                     |
 
 If the backend is in another language (e.g. Python), store the JSON and rebuild the CSV from this table; it is a straight field-by-field mapping.
 
